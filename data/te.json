@@ -1,0 +1,331 @@
+{
+  'kb': {
+    u
+    'Town and Country_traffic_info': [
+      u
+      'Town and Country',
+      u
+      'traffic_info',
+      u
+      'moderate traffic'
+    ],
+    u
+    'Stanford Express Care_traffic_info': [
+      u
+      'Stanford Express Care',
+      u
+      'traffic_info',
+      u
+      'no traffic'
+    ],
+    u
+    'Stanford Shopping Center_address': [
+      u
+      'Stanford Shopping Center',
+      u
+      'address',
+      u
+      '773 Alger Dr'
+    ],
+    u
+    'Palo Alto Garage R_poi_type': [
+      u
+      'Palo Alto Garage R',
+      u
+      'poi_type',
+      u
+      'parking garage'
+    ],
+    u
+    'Teavana_poi_type': [
+      u
+      'Teavana',
+      u
+      'poi_type',
+      u
+      'coffee or tea place'
+    ],
+    u
+    'Stanford Shopping Center_poi_type': [
+      u
+      'Stanford Shopping Center',
+      u
+      'poi_type',
+      u
+      'shopping center'
+    ],
+    u
+    'Town and Country_address': [
+      u
+      'Town and Country',
+      u
+      'address',
+      u
+      '383 University Ave'
+    ],
+    u
+    'Stanford Express Care_address': [
+      u
+      'Stanford Express Care',
+      u
+      'address',
+      u
+      '214 El Camino Real'
+    ],
+    u
+    'Palo Alto Garage R_traffic_info': [
+      u
+      'Palo Alto Garage R',
+      u
+      'traffic_info',
+      u
+      'road block nearby'
+    ],
+    u
+    'Dominos_traffic_info': [
+      u
+      'Dominos',
+      u
+      'traffic_info',
+      u
+      'moderate traffic'
+    ],
+    u
+    'Dominos_distance': [
+      u
+      'Dominos',
+      u
+      'distance',
+      u
+      '4 miles'
+    ],
+    u
+    'Palo Alto Garage R_address': [
+      u
+      'Palo Alto Garage R',
+      u
+      'address',
+      u
+      '481 Amaranta Ave'
+    ],
+    u
+    'Palo Alto Medical Foundation_address': [
+      u
+      'Palo Alto Medical Foundation',
+      u
+      'address',
+      u
+      '611 Ames Ave'
+    ],
+    u
+    'Dominos_address': [
+      u
+      'Dominos',
+      u
+      'address',
+      u
+      '776 Arastradero Rd'
+    ],
+    u
+    '76_poi_type': [
+      u
+      '76',
+      u
+      'poi_type',
+      u
+      'gas station'
+    ],
+    u
+    'Palo Alto Garage R_distance': [
+      u
+      'Palo Alto Garage R',
+      u
+      'distance',
+      u
+      '4 miles'
+    ],
+    u
+    'Palo Alto Medical Foundation_distance': [
+      u
+      'Palo Alto Medical Foundation',
+      u
+      'distance',
+      u
+      '3 miles'
+    ],
+    u
+    'Teavana_address': [
+      u
+      'Teavana',
+      u
+      'address',
+      u
+      '145 Amherst St'
+    ],
+    u
+    'Stanford Shopping Center_distance': [
+      u
+      'Stanford Shopping Center',
+      u
+      'distance',
+      u
+      '2 miles'
+    ],
+    u
+    'Dominos_poi_type': [
+      u
+      'Dominos',
+      u
+      'poi_type',
+      u
+      'pizza restaurant'
+    ],
+    u
+    '76_distance': [
+      u
+      '76',
+      u
+      'distance',
+      u
+      '4 miles'
+    ],
+    u
+    'Town and Country_distance': [
+      u
+      'Town and Country',
+      u
+      'distance',
+      u
+      '4 miles'
+    ],
+    u
+    '76_address': [
+      u
+      '76',
+      u
+      'address',
+      u
+      '91 El Camino Real'
+    ],
+    u
+    'Stanford Express Care_distance': [
+      u
+      'Stanford Express Care',
+      u
+      'distance',
+      u
+      '5 miles'
+    ],
+    u
+    'Palo Alto Medical Foundation_poi_type': [
+      u
+      'Palo Alto Medical Foundation',
+      u
+      'poi_type',
+      u
+      'hospital'
+    ],
+    u
+    '76_traffic_info': [
+      u
+      '76',
+      u
+      'traffic_info',
+      u
+      'moderate traffic'
+    ],
+    u
+    'Stanford Express Care_poi_type': [
+      u
+      'Stanford Express Care',
+      u
+      'poi_type',
+      u
+      'hospital'
+    ],
+    u
+    'Palo Alto Medical Foundation_traffic_info': [
+      u
+      'Palo Alto Medical Foundation',
+      u
+      'traffic_info',
+      u
+      'no traffic'
+    ],
+    u
+    'Teavana_traffic_info': [
+      u
+      'Teavana',
+      u
+      'traffic_info',
+      u
+      'moderate traffic'
+    ],
+    u
+    'Town and Country_poi_type': [
+      u
+      'Town and Country',
+      u
+      'poi_type',
+      u
+      'shopping center'
+    ],
+    u
+    'Teavana_distance': [
+      u
+      'Teavana',
+      u
+      'distance',
+      u
+      '3 miles'
+    ],
+    u
+    'Stanford Shopping Center_traffic_info': [
+      u
+      'Stanford Shopping Center',
+      u
+      'traffic_info',
+      u
+      'moderate traffic'
+    ]
+  },
+  2: 2,
+  'lines': [
+    {
+      'turn': u
+      'driver',
+      'utterance': u
+      'Where is the nearest gas station?'
+    },
+    {
+      'turn': u
+      'assistant',
+      'utterance': u
+      'There is a 76 4 miles away.'
+    },
+    {
+      'turn': u
+      'driver',
+      'utterance': u
+      'What is the address?'
+    },
+    {
+      'turn': u
+      'assistant',
+      'utterance': u
+      'The 76 gas station is located at 91 El Camino Real. It is 4 miles away through moderate traffic'
+    },
+    {
+      'turn': u
+      'driver',
+      'utterance': u
+      'Thanks!'
+    },
+    {
+      'turn': u
+      'assistant',
+      'utterance': u
+      'Anytime!'
+    }
+  ]
+}
