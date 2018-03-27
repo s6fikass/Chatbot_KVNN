@@ -9,10 +9,9 @@ from tensorflow.python.ops import math_ops
 from tensorflow.python.ops import nn_ops
 #from tensorflow.contrib.rnn.python.ops import rnn
 from tensorflow.contrib import rnn
-from tensorflow.contrib.rnn.python.ops import rnn_cell
 from tensorflow.python.ops import variable_scope
 from tensorflow.python.util import nest
-from tensorflow.contrib.rnn.python.ops.core_rnn_cell import _linear
+from tensorflow.python.ops.rnn_cell_impl import _linear
 
 from util.tf_utils import batch_linear
 
