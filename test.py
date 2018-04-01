@@ -11,11 +11,11 @@
 # hypothesis = [['It', 'is', 'a', 'cat', 'at', 'room'], ['It', 'is', 'a', 'cat', 'at', 'room']]
 # reference = [['It', 'is', 'a', 'cat', 'inside', 'the', 'room']]
 # #there may be several references
-# BLEUscore = nltk.translate.bleu_score.corpus_bleu([reference,reference], hypothesis)
-# print BLEUscore
-from corpus.textdata import TextData
-
-textdata=TextData("data/kvret_train_public.json")
+# # BLEUscore = nltk.translate.bleu_score.corpus_bleu([reference,reference], hypothesis)
+# # print BLEUscore
+# from corpus.textdata import TextData
+#
+# textdata=TextData("data/kvret_train_public.json")
 #
 # import json
 #
@@ -24,3 +24,8 @@ textdata=TextData("data/kvret_train_public.json")
 #     for kb in datastore:
 #         for triple in kb['kb']['items']:
 #             print triple
+
+l=[]
+l2=[5, 6, 7, 8, 9]
+l.extend(l2)
+print l

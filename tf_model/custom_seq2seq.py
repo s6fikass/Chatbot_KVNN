@@ -113,6 +113,7 @@ def attention_decoder(decoder_inputs,
             output = linear(cell_output, new_attn).
         state: The state of each decoder cell the final time-step.
           It is a 2D Tensor of shape [batch_size x cell.state_size].
+ ssh kassawat@sda-srv03.iai.uni-bonn.de
 
     Raises:
       ValueError: when num_heads is not positive, there are no inputs, shapes

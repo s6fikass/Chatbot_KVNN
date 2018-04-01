@@ -57,7 +57,7 @@ class TextData:
         """
         return list(TextData.availableCorpus.keys())
 
-    def __init__(self,dataFile, intputMaxLenth=40, outputMaxLenth = 50):
+    def __init__(self,dataFile,validFile, testFile):
         """Load all conversations
         Args:
             args: parameters of the model
@@ -65,20 +65,25 @@ class TextData:
         # Model parameters
         self.vocabularySize = 0
         self.corpus = 'kvret'
-        self.intputMaxLen = intputMaxLenth
-        self.outputMaxLen = outputMaxLenth
 
         # Path variables
         self.corpusDir = os.path.join(dataFile)
+        self.validcorpus = os.path.join(validFile)
+        self.testcorpus = os.path.join(testFile)
+
         basePath = self._constructBasePath()
-        self.fullSamplesPath = basePath + '.pkl'  # Full sentences length/vocab
+        self.fullSamplesPath = basePath +'.pkl'  # Full sentences length/vocab
         self.filteredSamplesPath = basePath + 'filtered.pkl'
+
         self.padToken = -1  # Padding
         self.goToken = -1  # Start of sequence
         self.eosToken = -1  # End of sequence
+        self.eouToken= -1 # End of utterance
         self.unknownToken = -1  # Word dropped from vocabulary
-        self.maxLength=40
+
         self.trainingSamples = []  # 2d array containing each question and his answer [[input,target,kb]]
+        self.validationSamples = []
+        self.testSamples = []
 
         self.word2id = {}
         self.id2word = {}  # For a rapid conversion (Warning: If replace dict by list, modify the filtering to avoid linear complexity with del)
@@ -114,7 +119,6 @@ class TextData:
     def shuffle(self):
         """Shuffle the training samples
         """
-        print('Shuffling the dataset...')
         random.shuffle(self.trainingSamples)
 
     def _createBatch(self, samples):
@@ -295,6 +299,14 @@ class TextData:
         """
         return len(self.word2id)
 
+    def get_candidates(self,target_batch, pridictions):
+        candidate_sentences = []
+        reference_sentences = []
+        for target, pridiction in zip(target_batch, pridictions):
+            reference_sentences.append([self.sequence2str(target)])
+            candidate_sentences.append(self.sequence2str(pridiction))
+        return candidate_sentences, reference_sentences
+
     def loadCorpus(self):
         """Load/create the conversations data
         """
@@ -308,7 +320,12 @@ class TextData:
 
                 # Corpus creation
                 corpusData = TextData.availableCorpus['kvret'](self.corpusDir)
+                validData = TextData.availableCorpus['kvret'](self.validcorpus)
+                testData = TextData.availableCorpus['kvret'](self.testcorpus)
+
                 self.createFullCorpus(corpusData.getConversations())
+                self.createFullCorpus(validData.getConversations(),valid=True)
+                self.createFullCorpus(testData.getConversations(),test=True)
                 self.saveDataset(self.fullSamplesPath)
             else:
                 self.loadDataset(self.fullSamplesPath)
@@ -337,7 +354,9 @@ class TextData:
                 'word2id': self.word2id,
                 'id2word': self.id2word,
                 'idCount': self.idCount,
-                'trainingSamples': self.trainingSamples
+                'trainingSamples': self.trainingSamples,
+                'validationSamples': self.validationSamples,
+                'testSamples': self.testSamples
             }
             pickle.dump(data, handle, -1)  # Using the highest protocol available
 
@@ -354,9 +373,12 @@ class TextData:
             self.id2word = data['id2word']
             self.idCount = data.get('idCount', None)
             self.trainingSamples = data['trainingSamples']
+            self.validationSamples = data['validationSamples']
+            self.testSamples = data['testSamples']
 
             self.padToken = self.word2id['<pad>']
             self.goToken = self.word2id['<go>']
+            self.eouToken = self.word2id['<eou>']
             self.eosToken = self.word2id['<eos>']
             self.unknownToken = self.word2id['<unknown>']  # Restore special words
 
@@ -460,7 +482,7 @@ class TextData:
 
         self.idCount.clear()  # Not usefull anymore. Free data
 
-    def createFullCorpus(self, conversations):
+    def createFullCorpus(self, conversations,valid=False, test=False):
         """Extract all data from the given vocabulary.
         Save the data on disk. Note that the entire corpus is pre-processed
         without restriction on the sentence length or vocab size.
@@ -469,45 +491,51 @@ class TextData:
         self.eosToken = self.getWordId('<eos>')  # End of sequence
         self.goToken = self.getWordId('<go>')  # Start of sequence
         self.padToken = self.getWordId('<pad>')  # Padding (Warning: first things to add > id=0 !!)
+        self.eouToken= self.getWordId('<eou>')
         self.unknownToken = self.getWordId('<unknown>')  # Word dropped from vocabulary
 
         # Preprocessing data
 
         for conversation in tqdm(conversations, desc='Extract conversations'):
-            self.extractConversation(conversation)
+            self.extractConversation(conversation,valid,test)
 
         # The dataset will be saved in the same order it has been extracted
 
-    def extractConversation(self, conversation):
+    def extractConversation(self, conversation, valid, test):
         """Extract the sample lines from the conversations
         Args:
             conversation (Obj): a conversation object containing the lines to extract
         """
 
-        # if self.skipLines:  # WARNING: The dataset won't be regenerated if the choice evolve (have to use the datasetTag)
-        #     step = 2
-        # else:
         step = 1
 
         # Iterate over all the lines of the conversation
+        prev_conversation=[]
         for i in tqdm_wrap(
             range(0, len(conversation['lines']) - 1, step),  # We ignore the last line (no answer for it)
             desc='Conversation',
             leave=False ):
 
-
             if conversation['lines'][i]['turn'] == 'driver':
                 inputLine = conversation['lines'][i]
                 targetLine = conversation['lines'][i+1]
-                inputWords  = self.extractText(inputLine['utterance'])
+                prev_conversation.extend(self.extractText(inputLine['utterance']))
+                inputWords  = prev_conversation
                 targetWords = self.extractText(targetLine['utterance'], True, conversation['kb'])
-
-                if len(inputWords) > self.intputMaxLen and len(targetWords) > self.outputMaxLen:
-                    continue
                 triples = conversation['kb']
 
-            if inputWords and targetWords:  # Filter wrong samples (if one of the list is empty)
+                prev_conversation.append(self.eouToken)
+                prev_conversation.extend(targetWords)
+                prev_conversation.append(self.eouToken)
+            else:
+                continue
+
+            if inputWords and targetWords and not valid and not test:  # Filter wrong samples (if one of the list is empty)
                 self.trainingSamples.append([inputWords, targetWords, triples])
+            elif inputWords and targetWords and valid:
+                self.validationSamples.append([inputWords, targetWords, triples])
+            elif inputWords and targetWords and test:
+                self.testSamples.append([inputWords, targetWords, triples])
 
     def extractText(self, line, target=False, kb=[]):
         """Extract the words from a sample lines
@@ -518,10 +546,10 @@ class TextData:
         """
         sentences = []  # List[List[str]]
 
-        for triple in kb:
-            # print triple
-            if line.find(triple[2])!= -1:
-                line=line.replace(triple[2],triple[0]+'_'+triple[1])
+        # for triple in kb:
+        #     # print triple
+        #     if line.find(triple[2])!= -1:
+        #         line=line.replace(triple[2],triple[0]+'_'+triple[1])
 
         # Extract sentences
         sentencesToken = re.findall(r"[\w']+|[^\s\w']", line)
