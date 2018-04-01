@@ -1,6 +1,8 @@
 1.4.1
 Loading dataset from data/samples/dataset-kvretfiltered.pkl
-Loaded Kvret : 807 words, 1238 QA
+Loaded Kvret : 1617 words, 12584 QA
 ('Embedding size: ', 200)
 Using vanilla seq2seq...
-Epoch 1
+Model restored.
+Current Global step 0
+Interruption detected, exiting the program...
