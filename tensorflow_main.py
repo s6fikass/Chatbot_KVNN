@@ -15,7 +15,7 @@ from tensorflow.python.ops import lookup_ops
 import tensorflow as tf
 
 
-def get_config_proto(log_device_placement=False, allow_soft_placement=True,
+def get_config_proto(log_device_placement=True, allow_soft_placement=True,
                      num_intra_threads=0, num_inter_threads=0):
   # GPU options:
   # https://www.tensorflow.org/versions/r0.10/how_tos/using_gpu/index.html
@@ -252,7 +252,7 @@ def main(attention, attention_architecture):
                 for out in out:
                     pred.append(np.argmax(out))
 
-            if epoch_step % 400 == 0:
+            if epoch_step % 10 == 0:
                 print('Epoch', epoch_step)
 
                     # for input_batch, target_batch, batch_preds in zip(input_batches, target_batches, all_preds):
