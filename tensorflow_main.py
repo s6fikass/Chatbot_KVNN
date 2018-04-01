@@ -1,7 +1,7 @@
 from __future__ import print_function
 from corpus.textdata import TextData
 from tf_model.seq2seq_model import Seq2Seq
-#from tf_model.seq2seq_kv_model import Seq2SeqKV
+from tf_model.seq2seq_kv_model import Seq2SeqKV
 import collections
 import time
 import math
@@ -36,16 +36,6 @@ def get_config_proto(log_device_placement=True, allow_soft_placement=True,
 
 
 def evaluate(test, attention,attention_architecture):
-    eval_file = 'data/kvret_dev_public.json'
-    model_dir = "trained_model"
-
-    textData = TextData(eval_file,'eval')
-    voc_size = textData.getVocabularySize()
-
-    batch_size = 256
-    eos = 1
-    maxLengthEnco = textData.getInputMaxLength()
-    maxLengthDeco = textData.getTargetMaxLength()
 
     eval_graph = tf.Graph()
 
@@ -270,9 +260,11 @@ def main(attention, attention_architecture):
                 # print (pred[0])
                 # print("=>", textData.sequence2str(pred))
                 # print ('\tepoch loss: {:.2f}\n'.format(epoch_loss))
+                #evaluate()
 
                 print('Epoch', epoch_step)
                 print('Training loss', loss_history[len(loss_history)-1])
+
 
         except (KeyboardInterrupt, SystemExit):  # If the user press Ctrl+C while testing progress
             print('Interruption detected, exiting the program...')
@@ -293,6 +285,6 @@ def main(attention, attention_architecture):
 
 if __name__ == "__main__":
     if len(sys.argv)==1:
-        main(False,False)
+        main(True, False)
     else:
         main(sys.argv[1])
