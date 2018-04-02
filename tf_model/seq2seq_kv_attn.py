@@ -12,8 +12,8 @@ from tensorflow.python.ops import rnn
 from tensorflow.contrib.rnn.python.ops import rnn_cell
 from tensorflow.python.ops import variable_scope
 from tensorflow.python.util import nest
-
-from model.custom_rnn_cell import CustomEmbeddingWrapper
+from tensorflow.python.ops.rnn_cell_impl import _linear
+from tf_model.custom_rnn_cell import CustomEmbeddingWrapper
 from util.tf_utils import batch_linear
 
 """
@@ -21,7 +21,7 @@ Seq2Seq model that also allows softly attending over a KB represented in a key
  value format
 """
 
-linear = rnn_cell._linear
+linear = _linear
 
 
 def _extract_argmax_and_embed(embedding, output_projection=None):
