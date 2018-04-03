@@ -92,6 +92,7 @@ def main(attention, attention_architecture):
     eos=1
     maxLengthEnco = textData.getInputMaxLength()
     maxLengthDeco = textData.getTargetMaxLength()
+    print ("Max Decodder", textData.getTargetMaxLength())
 
     train_graph = tf.Graph()
 
@@ -118,7 +119,7 @@ def main(attention, attention_architecture):
 
         #train_sess = tf.Session()
         config_proto = get_config_proto(
-            log_device_placement=True,
+            log_device_placement=False,
             num_intra_threads=0,
             num_inter_threads=0)
 
