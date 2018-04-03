@@ -261,15 +261,14 @@ class TextData:
         #     print(self.sequence2str(samples[0][1]))  # Check we did not modified the original sample
         return batch
 
-    def getBatches(self, batch_size=1):
+    def getBatches(self, batch_size=1,valid=False,test=False):
         """Prepare the batches for the current epoch
         Return:
             list<Batch>: Get a list of the batches for the next epoch
         """
         self.shuffle()
         self.batchSize=batch_size
-        # print self.getInputMaxLength()
-        # print self.getTargetMaxLength()
+
         batches = []
 
         def genNextSamples():
@@ -278,11 +277,32 @@ class TextData:
             for i in range(0, self.getSampleSize(), self.batchSize):
                 yield self.trainingSamples[i:min(i + self.batchSize, self.getSampleSize())]
 
-        # TODO: Should replace that by generator (better: by tf.queue)
+        def genValidNextSamples():
+            """ Generator over the mini-batch training samples
+                """
+            for i in range(0, len(self.validationSamples), self.batchSize):
+                yield self.validationSamples[i:min(i + self.batchSize, len(self.validationSamples))]
 
-        for samples in genNextSamples():
-            batch = self.createMyBatch(samples)
-            batches.append(batch)
+        def genTestNextSamples():
+            """ Generator over the mini-batch training samples
+                """
+            for i in range(0, len(self.testSamples), self.batchSize):
+                yield self.testSamples[i:min(i + self.batchSize, len(self.testSamples))]
+
+        # TODO: Should replace that by generator (better: by tf.queue)
+        if valid:
+            for samples in genValidNextSamples():
+                batch = self.createMyBatch(samples)
+                batches.append(batch)
+        elif test:
+            for samples in genTestNextSamples():
+                batch = self.createMyBatch(samples)
+                batches.append(batch)
+        else:
+            for samples in genNextSamples():
+                batch = self.createMyBatch(samples)
+                batches.append(batch)
+
         return batches
 
     def getSampleSize(self):
@@ -299,12 +319,13 @@ class TextData:
         """
         return len(self.word2id)
 
-    def get_candidates(self,target_batch, pridictions):
+    def get_candidates(self, target_batches, all_predictions):
         candidate_sentences = []
         reference_sentences = []
-        for target, pridiction in zip(target_batch, pridictions):
-            reference_sentences.append([self.sequence2str(target)])
-            candidate_sentences.append(self.sequence2str(pridiction))
+        for target_batch, pridictions in zip(target_batches, all_predictions):
+            for target, pridiction in zip(target_batch, pridictions):
+                reference_sentences.append([self.sequence2str(target)])
+                candidate_sentences.append(self.sequence2str(pridiction))
         return candidate_sentences, reference_sentences
 
     def loadCorpus(self):

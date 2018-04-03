@@ -24,7 +24,11 @@
 #     for kb in datastore:
 #         for triple in kb['kb']['items']:
 #             print triple
-
+# for input_batch, target_batch, batch_preds in zip(input_batches, target_batches, all_preds):
+                    #     for input_sent, target_sent, pred in zip(input_batch, target_batch, batch_preds):
+                    #         print('\t', input_sent)
+                    #         print('\t => ', idx2sent(pred, reverse_vocab=dec_reverse_vocab))
+                    #         print('\tCorrent answer:', target_sent)
 l=[]
 l2=[5, 6, 7, 8, 9]
 l.extend(l2)

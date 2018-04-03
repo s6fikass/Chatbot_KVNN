@@ -49,7 +49,7 @@ class Seq2Seq(object):
         self.do_decode = do_decode
         # Whether to tie encoder/decoder weights
         self.tied = tied
-        self.global_step = tf.Variable(0, trainable=False)
+        self.global_step = tf.Variable(0, name='global_step', trainable=False)
         #params = tf.trainable_variables()
 
         self._build_model()
@@ -191,4 +191,6 @@ class Seq2Seq(object):
 
         self.predictions = tf.transpose(tf.argmax(tf.stack(self.outputs), axis=-1), [1, 0])
         self.saver = tf.train.Saver(max_to_keep=10)
+        self.increment_global_step = tf.assign_add(self.global_step, 1,
+                                              name='increment_global_step')
 
