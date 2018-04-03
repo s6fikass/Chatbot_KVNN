@@ -182,7 +182,7 @@ def main(attention, attention_architecture):
                 eval_loss, eval_metric_score = evaluate(model, textData, train_sess)
 
                 with open(model_dir + "/stats.txt", "a") as myfile:
-                    myfile.write(epoch_step+"\t "+epoch_loss+"\t "+training_metric_score+"\t "+eval_loss+"\t "+eval_metric_score+"\n")
+                    myfile.write(str(epoch_step)+"\t "+str(epoch_loss)+"\t "+str(training_metric_score)+"\t "+str(eval_loss)+"\t "+str(eval_metric_score)+"\n")
                 # Save checkpoint
                 model.saver.save(
                     train_sess,
