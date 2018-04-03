@@ -213,8 +213,11 @@ class TextData:
             batch.decoderSeqs.append([self.goToken] + sample[1] + [self.eosToken])  # Add the <go> and <eos> tokens
             batch.targetSeqs.append(batch.decoderSeqs[-1][1:])  # Same as decoder, but shifted to the left (ignore the <go>)
 
-
             assert len(batch.encoderSeqs[i]) <= self.maxLengthEnco
+            if len(batch.decoderSeqs[i]) > self.maxLengthDeco +2:
+                print self.sequence2str(batch.decoderSeqs[i])
+                print len(batch.decoderSeqs[i])
+                print self.maxLengthDeco +2
             assert len(batch.decoderSeqs[i]) <= self.maxLengthDeco +2
 
             # TODO: Should use tf batch function to automatically add padding and batch samples
@@ -353,7 +356,7 @@ class TextData:
             self._printStats()
 
             print('Filtering words (vocabSize = {} )...'.format(
-                self.vocabularySize
+                self.getVocabularySize()
             ))
             self.filterFromFull()  # Extract the sub vocabulary for the given maxLength and filterVocab
 
