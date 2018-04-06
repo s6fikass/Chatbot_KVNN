@@ -190,7 +190,7 @@ def main(attention, attention_architecture):
                     global_step=epoch_step)
 
             print('Epoch', epoch_step)
-            print('Training loss', loss_history[len(loss_history)-1])
+            print('Training loss', epoch_loss)
 
         except (KeyboardInterrupt, SystemExit):  # If the user press Ctrl+C while testing progress
             print('Interruption detected, exiting the program...')
