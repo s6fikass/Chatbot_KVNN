@@ -531,10 +531,11 @@ class TextData:
             conversation (Obj): a conversation object containing the lines to extract
         """
 
-        step = 1
+        step = 2
 
         # Iterate over all the lines of the conversation
-        prev_conversation=[]
+        input_conversation = []
+        output_conversation = []
         for i in tqdm_wrap(
             range(0, len(conversation['lines']) - 1, step),  # We ignore the last line (no answer for it)
             desc='Conversation',
@@ -543,23 +544,22 @@ class TextData:
             if conversation['lines'][i]['turn'] == 'driver':
                 inputLine = conversation['lines'][i]
                 targetLine = conversation['lines'][i+1]
-                prev_conversation.extend(self.extractText(inputLine['utterance']))
-                inputWords  = prev_conversation
-                targetWords = self.extractText(targetLine['utterance'], True, conversation['kb'])
-                triples = conversation['kb']
+                input_conversation.extend(self.extractText(inputLine['utterance']))
+                output_conversation.extend(self.extractText(targetLine['utterance']))
 
-                prev_conversation.append(self.eouToken)
-                prev_conversation.extend(targetWords)
-                prev_conversation.append(self.eouToken)
+                if i < (len(conversation['lines'])-2):
+                    input_conversation.append(self.eouToken)
+                    output_conversation.append(self.eouToken)
             else:
                 continue
+        triples = conversation['kb']
 
-            if inputWords and targetWords and not valid and not test:  # Filter wrong samples (if one of the list is empty)
-                self.trainingSamples.append([inputWords, targetWords, triples])
-            elif inputWords and targetWords and valid:
-                self.validationSamples.append([inputWords, targetWords, triples])
-            elif inputWords and targetWords and test:
-                self.testSamples.append([inputWords, targetWords, triples])
+        if not valid and not test:  # Filter wrong samples (if one of the list is empty)
+            self.trainingSamples.append([input_conversation, output_conversation, triples])
+        elif valid:
+            self.validationSamples.append([input_conversation, output_conversation, triples])
+        elif test:
+            self.testSamples.append([input_conversation, output_conversation, triples])
 
     def extractText(self, line, target=False, kb=[]):
         """Extract the words from a sample lines
