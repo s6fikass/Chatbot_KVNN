@@ -19,7 +19,12 @@ textdata=TextData("data/kvret_train_public.json","data/kvret_dev_public.json","d
 print textdata.trainingSamples[0]
 print textdata.sequence2str(textdata.trainingSamples[0][0])
 print textdata.sequence2str(textdata.trainingSamples[0][1])
-#
+print textdata.trainingSamples[0][2]
+print textdata.getMaxTriples()
+
+batches=textdata.getBatches(500)
+print batches[0].kb_inputs
+print len(batches[0].kb_inputs)
 # import json
 #
 # with open('kb.json', 'r') as f:  # TODO: Solve Iso encoding pb !

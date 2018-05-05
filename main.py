@@ -128,7 +128,7 @@ class AttnDecoderRNN(nn.Module):
 
 class AttnKVDecoderRNN(nn.Module):
     def __init__(self, hidden_size, output_size, dropout_p=0.1, max_length=MAX_LENGTH):
-        super(AttnDecoderRNN, self).__init__()
+        super(AttnKVDecoderRNN, self).__init__()
         self.hidden_size = hidden_size
         self.output_size = output_size
         self.dropout_p = dropout_p
@@ -143,7 +143,7 @@ class AttnKVDecoderRNN(nn.Module):
 
     def forward(self, input, hidden, encoder_outputs, kb_input):
         embedded = self.embedding(input).view(1, 1, -1)
-        embedded = self.dropout(embedded)f
+        embedded = self.dropout(embedded)
 
         attn_weights = F.softmax(
             self.attn(torch.cat((embedded[0], hidden[0]), 1)), dim=1)
@@ -412,12 +412,16 @@ def evaluateRandomly(encoder, decoder, n=10):
 
 hidden_size = 256
 train_file = 'data/kvret_train_public.json'
+train_file = 'data/kvret_train_public.json'
+valid_file = 'data/kvret_dev_public.json'
+test_file = 'data/kvret_test_public.json'
+model_dir = "pytourch_trained_model"
 
-textData = TextData(train_file)
+textData = TextData(train_file, valid_file, test_file)
 
 encoder1 = EncoderRNN(textData.getVocabularySize(), hidden_size)
-# attn_decoder1 = AttnDecoderRNN(hidden_size, textData.getVocabularySize())
 attn_decoder1 = AttnKVDecoderRNN(hidden_size, textData.getVocabularySize())
+
 
 if use_cuda:
     encoder1 = encoder1.cuda()

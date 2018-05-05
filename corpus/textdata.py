@@ -36,6 +36,8 @@ class Batch:
     def __init__(self):
         self.encoderSeqs = []
         self.decoderSeqs = []
+        self.kb_inputs = []
+        self.kb_inputs_mask = []
         self.targetSeqs = []
         self.weights = []
 
@@ -194,7 +196,7 @@ class TextData:
 
         return batch
 
-    def createMyBatch(self, samples):
+    def createMyBatch(self, samples, transpose=True):
         """
         Args:
 
@@ -204,7 +206,7 @@ class TextData:
         batchSize = len(samples)
         self.maxLengthEnco = self.getInputMaxLength()
         self.maxLengthDeco = self.getTargetMaxLength()
-
+        self.maxTriples = self.getMaxTriples()
         # Create the batch tensor
         for i in range(batchSize):
             # Unpack the sample
@@ -212,12 +214,9 @@ class TextData:
             batch.encoderSeqs.append(sample[0])  # Reverse inputs (and not outputs), little trick as defined on the original seq2seq paper
             batch.decoderSeqs.append([self.goToken] + sample[1] + [self.eosToken])  # Add the <go> and <eos> tokens
             batch.targetSeqs.append(batch.decoderSeqs[-1][1:])  # Same as decoder, but shifted to the left (ignore the <go>)
+            batch.kb_inputs.append(sample[2])
 
             assert len(batch.encoderSeqs[i]) <= self.maxLengthEnco
-            if len(batch.decoderSeqs[i]) > self.maxLengthDeco +2:
-                print self.sequence2str(batch.decoderSeqs[i])
-                print len(batch.decoderSeqs[i])
-                print self.maxLengthDeco +2
             assert len(batch.decoderSeqs[i]) <= self.maxLengthDeco +2
 
             # TODO: Should use tf batch function to automatically add padding and batch samples
@@ -226,45 +225,47 @@ class TextData:
             batch.weights.append([1.0] * len(batch.targetSeqs[i]) + [0.0] * (self.maxLengthDeco - len(batch.targetSeqs[i])))
             batch.decoderSeqs[i] = batch.decoderSeqs[i] + [self.padToken] * (self.maxLengthDeco - len(batch.decoderSeqs[i]))
             batch.targetSeqs[i]  = batch.targetSeqs[i]  + [self.padToken] * (self.maxLengthDeco - len(batch.targetSeqs[i]))
+            batch.kb_inputs[i] = batch.kb_inputs[i]+ [0, 0, 0]* (self.maxTriples - len(batch.kb_inputs[i]))
 
         # print ("Before Reshaping %d" % len(batch.encoderSeqs))
         # print ("Before Reshaping %d" % len(batch.decoderSeqs))
         # Simple hack to reshape the batch
-        encoderSeqsT = []  # Corrected orientation
-        for i in range(self.maxLengthEnco):
-            encoderSeqT = []
-            for j in range(batchSize):
-                encoderSeqT.append(batch.encoderSeqs[j][i])
-            encoderSeqsT.append(encoderSeqT)
-        batch.encoderSeqs = encoderSeqsT
+        if transpose:
+            encoderSeqsT = []  # Corrected orientation
+            for i in range(self.maxLengthEnco):
+                encoderSeqT = []
+                for j in range(batchSize):
+                    encoderSeqT.append(batch.encoderSeqs[j][i])
+                encoderSeqsT.append(encoderSeqT)
+            batch.encoderSeqs = encoderSeqsT
 
-        decoderSeqsT = []
-        targetSeqsT = []
-        weightsT = []
-        for i in range(self.maxLengthDeco):
-            decoderSeqT = []
-            targetSeqT = []
-            weightT = []
-            for j in range(batchSize):
-                decoderSeqT.append(batch.decoderSeqs[j][i])
-                targetSeqT.append(batch.targetSeqs[j][i])
-                weightT.append(batch.weights[j][i])
-            decoderSeqsT.append(decoderSeqT)
-            targetSeqsT.append(targetSeqT)
-            weightsT.append(weightT)
-        batch.decoderSeqs = decoderSeqsT
-        batch.targetSeqs = targetSeqsT
-        batch.weights = weightsT
-        # print ("After Reshaping %d" % len(batch.encoderSeqs))
-        # print ("After Reshaping %d" % len(batch.decoderSeqs))
+            decoderSeqsT = []
+            targetSeqsT = []
+            weightsT = []
+            for i in range(self.maxLengthDeco):
+                decoderSeqT = []
+                targetSeqT = []
+                weightT = []
+                for j in range(batchSize):
+                    decoderSeqT.append(batch.decoderSeqs[j][i])
+                    targetSeqT.append(batch.targetSeqs[j][i])
+                    weightT.append(batch.weights[j][i])
+                decoderSeqsT.append(decoderSeqT)
+                targetSeqsT.append(targetSeqT)
+                weightsT.append(weightT)
+            batch.decoderSeqs = decoderSeqsT
+            batch.targetSeqs = targetSeqsT
+            batch.weights = weightsT
+            # print ("After Reshaping %d" % len(batch.encoderSeqs))
+            # print ("After Reshaping %d" % len(batch.decoderSeqs))
 
-        # # Debug
-        #self.printBatch(batch)  # Input inverted, padding should be correct
-        #     print(self.sequence2str(samples[0][0]))
-        #     print(self.sequence2str(samples[0][1]))  # Check we did not modified the original sample
+            # # Debug
+            #self.printBatch(batch)  # Input inverted, padding should be correct
+            #     print(self.sequence2str(samples[0][0]))
+            #     print(self.sequence2str(samples[0][1]))  # Check we did not modified the original sample
         return batch
 
-    def getBatches(self, batch_size=1,valid=False,test=False):
+    def getBatches(self, batch_size=1,valid=False,test=False, transpose=True):
         """Prepare the batches for the current epoch
         Return:
             list<Batch>: Get a list of the batches for the next epoch
@@ -295,15 +296,15 @@ class TextData:
         # TODO: Should replace that by generator (better: by tf.queue)
         if valid:
             for samples in genValidNextSamples():
-                batch = self.createMyBatch(samples)
+                batch = self.createMyBatch(samples, transpose)
                 batches.append(batch)
         elif test:
             for samples in genTestNextSamples():
-                batch = self.createMyBatch(samples)
+                batch = self.createMyBatch(samples, transpose)
                 batches.append(batch)
         else:
             for samples in genNextSamples():
-                batch = self.createMyBatch(samples)
+                batch = self.createMyBatch(samples, transpose)
                 batches.append(batch)
 
         return batches
@@ -457,9 +458,9 @@ class TextData:
         # 2nd step: filter the unused words and replace them by the unknown token
         # This is also where we update the correnspondance dictionaries
         specialTokens = {  # TODO: bad HACK to filter the special tokens. Error prone if one day add new special tokens
+            self.padToken,
             self.eosToken,
             self.goToken,
-            self.padToken,
             self.unknownToken
         }
         newMapping = {}  # Map the full words ids to the new one (TODO: Should be a list)
@@ -512,16 +513,16 @@ class TextData:
         without restriction on the sentence length or vocab size.
         """
         # Add standard tokens
+        self.padToken = self.getWordId('<pad>')  # Padding (Warning: first things to add > id=0 !!)
         self.eosToken = self.getWordId('<eos>')  # End of sequence
         self.goToken = self.getWordId('<go>')  # Start of sequence
-        self.padToken = self.getWordId('<pad>')  # Padding (Warning: first things to add > id=0 !!)
         self.eouToken= self.getWordId('<eou>')
         self.unknownToken = self.getWordId('<unknown>')  # Word dropped from vocabulary
 
         # Preprocessing data
 
         for conversation in tqdm(conversations, desc='Extract conversations'):
-            self.extractConversation(conversation,valid,test)
+            self.extractConversation(conversation, valid, test)
 
         # The dataset will be saved in the same order it has been extracted
 
@@ -539,7 +540,7 @@ class TextData:
         for i in tqdm_wrap(
             range(0, len(conversation['lines']) - 1, step),  # We ignore the last line (no answer for it)
             desc='Conversation',
-            leave=False ):
+                leave=False):
 
             if conversation['lines'][i]['turn'] == 'driver':
                 inputLine = conversation['lines'][i]
@@ -552,7 +553,7 @@ class TextData:
                     output_conversation.append(self.eouToken)
             else:
                 continue
-        triples = conversation['kb']
+        triples = self.extractText(conversation['kb'], True)
 
         if not valid and not test:  # Filter wrong samples (if one of the list is empty)
             self.trainingSamples.append([input_conversation, output_conversation, triples])
@@ -561,29 +562,32 @@ class TextData:
         elif test:
             self.testSamples.append([input_conversation, output_conversation, triples])
 
-    def extractText(self, line, target=False, kb=[]):
+    def extractText(self, line, kb = False):
         """Extract the words from a sample lines
         Args:
             line (str): a line containing the text to extract
         Return:
             list<list<int>>: the list of sentences of word ids of the sentence
         """
-        sentences = []  # List[List[str]]
+        if kb:
+            triples = []
+            for triple in line:
+                entities=[]
+                for entity in triple:
+                    entities.append(self.getWordId(entity))
+                triples.append(entities)
+            return triples
+        else:
+            sentences = []  # List[List[str]]
+            # Extract sentences
+            sentencesToken = re.findall(r"[\w']+|[^\s\w']", line)
 
-        # for triple in kb:
-        #     # print triple
-        #     if line.find(triple[2])!= -1:
-        #         line=line.replace(triple[2],triple[0]+'_'+triple[1])
+            # We add sentence by sentence until we reach the maximum length
+            for i in range(len(sentencesToken)):
+                token = sentencesToken[i]
+                sentences.append(self.getWordId(token))  # Create the vocabulary and the training sentences
 
-        # Extract sentences
-        sentencesToken = re.findall(r"[\w']+|[^\s\w']", line)
-
-        # We add sentence by sentence until we reach the maximum length
-        for i in range(len(sentencesToken)):
-            token = sentencesToken[i]
-            sentences.append(self.getWordId(token))  # Create the vocabulary and the training sentences
-
-        return sentences
+            return sentences
 
     def getWordId(self, word, create=True):
         """Get the id of the word (and add it to the dictionary if not existing). If the word does not exist and
@@ -742,6 +746,9 @@ class TextData:
 
     def getTargetMaxLength(self):
         return max(map(len, (s for [_, s,_] in self.trainingSamples)))+2
+
+    def getMaxTriples(self):
+        return max(map(len, (s for [_, _,s] in self.trainingSamples)))
 
 def tqdm_wrap(iterable, *args, **kwargs):
     """Forward an iterable eventually wrapped around a tqdm decorator
