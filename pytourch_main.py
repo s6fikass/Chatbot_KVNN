@@ -552,9 +552,9 @@ def main(args):
                 epoch_ec = 0
                 epoch_dc = 0
 
-                #while steps_done < steps_per_epoch:
-                for current_batch in tqdm(batches, desc='Processing batches'):
-
+                while steps_done < steps_per_epoch:
+                #for current_batch in tqdm(batches, desc='Processing batches'):
+                    current_batch=batches[steps_done]
                     x = current_batch.encoderSeqs
                     y = current_batch.decoderSeqs
 
@@ -585,7 +585,7 @@ def main(args):
                     epoch_loss += loss
                     epoch_ec += ec
                     epoch_dc += dc
-                    #steps_done += 1
+                    steps_done += 1
 
                 # Keep track of loss
                 print_loss_total += epoch_loss
