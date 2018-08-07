@@ -703,6 +703,10 @@ if __name__ == '__main__':
                             help="""Location of trained model """,
                             required=False, default=False, type=bool)
 
+    named_args.add_argument('-cuda', '--cuda', metavar='|',
+                            help="""to use cuda """,
+                            required=False, default=False, type=bool)
+
     args = parser.parse_args()
     #args.model="KVSeq2Seq"
     #args.val=True
