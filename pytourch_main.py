@@ -4,16 +4,16 @@ import string
 import re
 import random
 import time
-import datetime
+#import datetime
 import math
 import socket
 import os
-from json import JSONDecoder
+#from json import JSONDecoder
 
-from reader import Data,Vocabulary
+#from reader import Data,Vocabulary
 import argparse
 
-from corpus.textdata import TextData,tqdm_wrap
+from corpus.textdata import TextData
 from model.seq2seq_model import KVEncoderRNN, KVAttnDecoderRNN, EncoderRNN, LuongAttnDecoderRNN
 
 hostname = socket.gethostname()
