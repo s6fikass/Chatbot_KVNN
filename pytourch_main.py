@@ -37,6 +37,7 @@ from torch.autograd import Variable
 USE_CUDA = False
 
 def sequence_mask(sequence_length, max_len=None):
+    print("type", type(sequence_length))
     if max_len is None:
         max_len = sequence_length.data.max()
     batch_size = sequence_length.size(0)
