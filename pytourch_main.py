@@ -528,7 +528,8 @@ def main(args):
         decoder = KVAttnDecoderRNN(attn_model, hidden_size, textdata.getVocabularySize(), n_layers, dropout=dropout)
     else:
         encoder = EncoderRNN(textdata.getVocabularySize(), hidden_size, n_layers, dropout=dropout)
-        decoder = LuongAttnDecoderRNN(attn_model, hidden_size, textdata.getVocabularySize(), n_layers, dropout=dropout)
+        decoder = LuongAttnDecoderRNN(attn_model, hidden_size, textdata.getVocabularySize(), n_layers, dropout=dropout
+                                      , use_cuda=USE_CUDA)
 
     if args.loadFilename:
         checkpoint = torch.load(args.loadFilename)
