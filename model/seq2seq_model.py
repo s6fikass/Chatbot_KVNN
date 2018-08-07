@@ -64,11 +64,12 @@ class KVEncoderRNN(nn.Module):
         return output, hidden, kb_embedded
 
 class Attn(nn.Module):
-    def __init__(self, method, hidden_size):
+    def __init__(self, method, hidden_size, use_cuda=None):
         super(Attn, self).__init__()
 
         self.method = method
         self.hidden_size = hidden_size
+        self.cuda = use_cuda
 
         if self.method == 'general':
             self.attn = nn.Linear(self.hidden_size, hidden_size)
@@ -86,8 +87,8 @@ class Attn(nn.Module):
         # Create variable to store attention energies
         attn_energies = Variable(torch.zeros(this_batch_size, max_len))  # B x S
 
-        # if USE_CUDA:
-        #     attn_energies = attn_energies.cuda()
+        if self.cuda:
+            attn_energies = attn_energies.cuda()
 
         # For each batch of encoder outputs
         for b in range(this_batch_size):
@@ -155,7 +156,7 @@ class KbAttn(nn.Module):
 
 
 class LuongAttnDecoderRNN(nn.Module):
-    def __init__(self, attn_model, hidden_size, output_size, n_layers=1, dropout=0.1):
+    def __init__(self, attn_model, hidden_size, output_size, n_layers=1, dropout=0.1,use_cuda=None):
         super(LuongAttnDecoderRNN, self).__init__()
 
         # Keep for reference
@@ -174,7 +175,7 @@ class LuongAttnDecoderRNN(nn.Module):
 
         # Choose attention model
         if attn_model != 'none':
-            self.attn = Attn(attn_model, hidden_size)
+            self.attn = Attn(attn_model, hidden_size,use_cuda)
 
     def forward(self, input_seq, last_context, last_hidden, encoder_outputs):
         # Note: we run this one step at a time (in order to do teacher forcing)
