@@ -29,13 +29,16 @@ import string
 import collections
 
 from corpus.kvretdata import KvretData
+import csv
 
 class Batch:
     """Struct containing batches info
     """
     def __init__(self):
         self.encoderSeqs = []
+        self.encoderSeqsLen = []
         self.decoderSeqs = []
+        self.decoderSeqsLen = []
         self.kb_inputs = []
         self.kb_inputs_mask = []
         self.targetSeqs = []
@@ -84,6 +87,8 @@ class TextData:
         self.unknownToken = -1  # Word dropped from vocabulary
 
         self.trainingSamples = []  # 2d array containing each question and his answer [[input,target,kb]]
+        self.txtTrainingSamples = []
+        self.txtValidationSamples = []
         self.validationSamples = []
         self.testSamples = []
 
@@ -122,79 +127,81 @@ class TextData:
         """Shuffle the training samples
         """
         random.shuffle(self.trainingSamples)
+        random.shuffle(self.validationSamples)
+        random.shuffle(self.testSamples)
 
-    def _createBatch(self, samples):
-        """Create a single batch from the list of sample. The batch size is automatically defined by the number of
-        samples given.
-        The inputs should already be inverted. The target should already have <go> and <eos>
-        Warning: This function should not make direct calls to args.batchSize !!!
-        Args:
-            samples (list<Obj>): a list of samples, each sample being on the form [input, target]
-        Return:
-            Batch: a batch object en
-        """
-
-        batch = Batch()
-        batchSize = len(samples)
-        self.maxLengthEnco = self.getInputMaxLength()
-        self.maxLengthDeco = self.getTargetMaxLength()
-
-        # Create the batch tensor
-        for i in range(batchSize):
-            # Unpack the sample
-            sample = samples[i]
-            # TODO: Why re-processed that at each epoch ? Could precompute that
-            # once and reuse those every time. Is not the bottleneck so won't change
-            # much ? and if preprocessing, should be compatible with autoEncode & cie.
-            batch.encoderSeqs.append(list(reversed(sample[0])))  # Reverse inputs (and not outputs), little trick as defined on the original seq2seq paper
-            batch.decoderSeqs.append([self.goToken] + sample[1] + [self.eosToken])  # Add the <go> and <eos> tokens
-            batch.targetSeqs.append(batch.decoderSeqs[-1][1:])  # Same as decoder, but shifted to the left (ignore the <go>)
-
-            # Long sentences should have been filtered during the dataset creation
-
-            assert len(batch.encoderSeqs[i]) <= self.maxLengthEnco
-            assert len(batch.decoderSeqs[i]) <= self.maxLengthDeco +2
-
-            # TODO: Should use tf batch function to automatically add padding and batch samples
-            # Add padding & define weight
-            batch.encoderSeqs[i]   = [self.padToken] * (self.maxLengthEnco  - len(batch.encoderSeqs[i])) + batch.encoderSeqs[i]  # Left padding for the input
-            batch.weights.append([1.0] * len(batch.targetSeqs[i]) + [0.0] * (self.maxLengthDeco - len(batch.targetSeqs[i])))
-            batch.decoderSeqs[i] = batch.decoderSeqs[i] + [self.padToken] * (self.maxLengthDeco - len(batch.decoderSeqs[i]))
-            batch.targetSeqs[i]  = batch.targetSeqs[i]  + [self.padToken] * (self.maxLengthDeco - len(batch.targetSeqs[i]))
-
-        # # Simple hack to reshape the batch
-        # encoderSeqsT = []  # Corrected orientation
-        # for i in range(self.maxLengthEnco):
-        #     encoderSeqT = []
-        #     for j in range(batchSize):
-        #         encoderSeqT.append(batch.encoderSeqs[j][i])
-        #     encoderSeqsT.append(encoderSeqT)
-        # batch.encoderSeqs = encoderSeqsT
-        #
-        # decoderSeqsT = []
-        # targetSeqsT = []
-        # weightsT = []
-        # for i in range(self.maxLengthDeco):
-        #     decoderSeqT = []
-        #     targetSeqT = []
-        #     weightT = []
-        #     for j in range(batchSize):
-        #         decoderSeqT.append(batch.decoderSeqs[j][i])
-        #         targetSeqT.append(batch.targetSeqs[j][i])
-        #         weightT.append(batch.weights[j][i])
-        #     decoderSeqsT.append(decoderSeqT)
-        #     targetSeqsT.append(targetSeqT)
-        #     weightsT.append(weightT)
-        # batch.decoderSeqs = decoderSeqsT
-        # batch.targetSeqs = targetSeqsT
-        # batch.weights = weightsT
-
-        # # Debug
-        #self.printBatch(batch)  # Input inverted, padding should be correct
-        # print(self.sequence2str(samples[0][0]))
-        # print(self.sequence2str(samples[0][1]))  # Check we did not modified the original sample
-
-        return batch
+    # def _createBatch(self, samples):
+    #     """Create a single batch from the list of sample. The batch size is automatically defined by the number of
+    #     samples given.
+    #     The inputs should already be inverted. The target should already have <go> and <eos>
+    #     Warning: This function should not make direct calls to args.batchSize !!!
+    #     Args:
+    #         samples (list<Obj>): a list of samples, each sample being on the form [input, target]
+    #     Return:
+    #         Batch: a batch object en
+    #     """
+    #
+    #     batch = Batch()
+    #     batchSize = len(samples)
+    #     self.maxLengthEnco = self.getInputMaxLength()
+    #     self.maxLengthDeco = self.getTargetMaxLength()
+    #
+    #     # Create the batch tensor
+    #     for i in range(batchSize):
+    #         # Unpack the sample
+    #         sample = samples[i]
+    #         # TODO: Why re-processed that at each epoch ? Could precompute that
+    #         print(sample[0])
+    #
+    #         batch.encoderSeqs.append(reversed(sample[0]))  # Reverse inputs (and not outputs), little trick as defined on the original seq2seq paper
+    #         batch.decoderSeqs.append([self.goToken] + sample[1] + [self.eosToken])  # Add the <go> and <eos> tokens
+    #         batch.targetSeqs.append(batch.decoderSeqs[-1][1:])  # Same as decoder, but shifted to the left (ignore the <go>)
+    #
+    #         # Long sentences should have been filtered during the dataset creation
+    #
+    #         assert len(batch.encoderSeqs[i]) <= self.maxLengthEnco
+    #         assert len(batch.decoderSeqs[i]) <= self.maxLengthDeco +2
+    #
+    #         # TODO: Should use tf batch function to automatically add padding and batch samples
+    #         # Add padding & define weight
+    #         batch.encoderSeqs[i]   = [self.padToken] * (self.maxLengthEnco  - len(batch.encoderSeqs[i])) + batch.encoderSeqs[i]  # Left padding for the input
+    #         batch.weights.append([1.0] * len(batch.targetSeqs[i]) + [0.0] * (self.maxLengthDeco - len(batch.targetSeqs[i])))
+    #         batch.decoderSeqs[i] = batch.decoderSeqs[i] + [self.padToken] * (self.maxLengthDeco - len(batch.decoderSeqs[i]))
+    #         batch.targetSeqs[i]  = batch.targetSeqs[i]  + [self.padToken] * (self.maxLengthDeco - len(batch.targetSeqs[i]))
+    #
+    #     # # Simple hack to reshape the batch
+    #     # encoderSeqsT = []  # Corrected orientation
+    #     # for i in range(self.maxLengthEnco):
+    #     #     encoderSeqT = []
+    #     #     for j in range(batchSize):
+    #     #         encoderSeqT.append(batch.encoderSeqs[j][i])
+    #     #     encoderSeqsT.append(encoderSeqT)
+    #     # batch.encoderSeqs = encoderSeqsT
+    #     #
+    #     # decoderSeqsT = []
+    #     # targetSeqsT = []
+    #     # weightsT = []
+    #     # for i in range(self.maxLengthDeco):
+    #     #     decoderSeqT = []
+    #     #     targetSeqT = []
+    #     #     weightT = []
+    #     #     for j in range(batchSize):
+    #     #         decoderSeqT.append(batch.decoderSeqs[j][i])
+    #     #         targetSeqT.append(batch.targetSeqs[j][i])
+    #     #         weightT.append(batch.weights[j][i])
+    #     #     decoderSeqsT.append(decoderSeqT)
+    #     #     targetSeqsT.append(targetSeqT)
+    #     #     weightsT.append(weightT)
+    #     # batch.decoderSeqs = decoderSeqsT
+    #     # batch.targetSeqs = targetSeqsT
+    #     # batch.weights = weightsT
+    #
+    #     # # Debug
+    #     #self.printBatch(batch)  # Input inverted, padding should be correct
+    #     # print(self.sequence2str(samples[0][0]))
+    #     # print(self.sequence2str(samples[0][1]))  # Check we did not modified the original sample
+    #
+    #     return batch
 
     def createMyBatch(self, samples, transpose=True):
         """
@@ -207,6 +214,13 @@ class TextData:
         self.maxLengthEnco = self.getInputMaxLength()
         self.maxLengthDeco = self.getTargetMaxLength()
         self.maxTriples = self.getMaxTriples()
+
+        # for i in range(batchSize):
+        #     print(samples[i][0])
+
+        samples.sort(key=lambda x: len(x[0]), reverse=True)
+
+
         # Create the batch tensor
         for i in range(batchSize):
             # Unpack the sample
@@ -216,16 +230,21 @@ class TextData:
             batch.targetSeqs.append(batch.decoderSeqs[-1][1:])  # Same as decoder, but shifted to the left (ignore the <go>)
             batch.kb_inputs.append(sample[2])
 
+            batch.encoderSeqsLen.append(len(sample[0]))
+            batch.decoderSeqsLen.append(len(sample[1])+2)
+
             assert len(batch.encoderSeqs[i]) <= self.maxLengthEnco
             assert len(batch.decoderSeqs[i]) <= self.maxLengthDeco +2
 
             # TODO: Should use tf batch function to automatically add padding and batch samples
             # Add padding & define weight
-            batch.encoderSeqs[i]   = [self.padToken] * (self.maxLengthEnco  - len(batch.encoderSeqs[i])) + batch.encoderSeqs[i]  # Left padding for the input
+            batch.encoderSeqs[i]   =   [self.padToken] * (self.maxLengthEnco  - len(batch.encoderSeqs[i])) +batch.encoderSeqs[i]   # Left padding for the input
             batch.weights.append([1.0] * len(batch.targetSeqs[i]) + [0.0] * (self.maxLengthDeco - len(batch.targetSeqs[i])))
             batch.decoderSeqs[i] = batch.decoderSeqs[i] + [self.padToken] * (self.maxLengthDeco - len(batch.decoderSeqs[i]))
             batch.targetSeqs[i]  = batch.targetSeqs[i]  + [self.padToken] * (self.maxLengthDeco - len(batch.targetSeqs[i]))
             batch.kb_inputs[i] = batch.kb_inputs[i]+ [0, 0, 0]* (self.maxTriples - len(batch.kb_inputs[i]))
+
+
 
         # print ("Before Reshaping %d" % len(batch.encoderSeqs))
         # print ("Before Reshaping %d" % len(batch.decoderSeqs))
@@ -384,6 +403,14 @@ class TextData:
                 'testSamples': self.testSamples
             }
             pickle.dump(data, handle, -1)  # Using the highest protocol available
+            # Assuming res is a list of lists
+            with open("data/samples/train.csv", "w") as output:
+
+                writer = csv.writer(output, lineterminator='\n')
+                writer.writerows(self.txtTrainingSamples)
+            with open("data/samples/valid.csv", "w") as output:
+                writer = csv.writer(output, lineterminator='\n')
+                writer.writerows(self.txtValidationSamples)
 
     def loadDataset(self, filename):
         """Load samples from file
@@ -526,7 +553,7 @@ class TextData:
 
         # The dataset will be saved in the same order it has been extracted
 
-    def extractConversation(self, conversation, valid, test):
+    def extractConversation(self, conversation, valid, test, herarical=False, truncate = True):
         """Extract the sample lines from the conversations
         Args:
             conversation (Obj): a conversation object containing the lines to extract
@@ -537,30 +564,66 @@ class TextData:
         # Iterate over all the lines of the conversation
         input_conversation = []
         output_conversation = []
+        input_txt_conversation = []
+        output_txt_conversation = []
+
         for i in tqdm_wrap(
             range(0, len(conversation['lines']) - 1, step),  # We ignore the last line (no answer for it)
             desc='Conversation',
                 leave=False):
+            if herarical:
 
-            if conversation['lines'][i]['turn'] == 'driver':
-                inputLine = conversation['lines'][i]
-                targetLine = conversation['lines'][i+1]
-                input_conversation.extend(self.extractText(inputLine['utterance']))
-                output_conversation.extend(self.extractText(targetLine['utterance']))
+                if conversation['lines'][i]['turn'] == 'driver':
+                    inputLine = conversation['lines'][i]
+                    targetLine = conversation['lines'][i+1]
 
-                if i < (len(conversation['lines'])-2):
-                    input_conversation.append(self.eouToken)
-                    output_conversation.append(self.eouToken)
+                    input_conversation.extend(self.extractText(inputLine['utterance']))
+                    output_conversation.extend(self.extractText(targetLine['utterance']))
+
+                    if i < (len(conversation['lines'])-2):
+                        input_conversation.append(self.eouToken)
+                        output_conversation.append(self.eouToken)
+
             else:
-                continue
-        triples = self.extractText(conversation['kb'], True)
 
-        if not valid and not test:  # Filter wrong samples (if one of the list is empty)
-            self.trainingSamples.append([input_conversation, output_conversation, triples])
-        elif valid:
-            self.validationSamples.append([input_conversation, output_conversation, triples])
-        elif test:
-            self.testSamples.append([input_conversation, output_conversation, triples])
+                if conversation['lines'][i]['turn'] == 'driver':
+
+                    inputLine = conversation['lines'][i]
+                    targetLine = conversation['lines'][i+1]
+
+                    if i >= 1:
+                        input_conversation.append(self.eouToken)
+                        input_conversation.extend(output_conversation)
+                        input_conversation.append(self.eouToken)
+                        # backup for text samples
+                        input_txt_conversation.append("<eou>")
+                        input_txt_conversation.append(output_txt_conversation)
+                        input_txt_conversation.append("<eou>")
+
+                    input_txt_conversation.append(inputLine['utterance'])
+                    output_txt_conversation = targetLine['utterance']
+
+                    input_conversation.extend(self.extractText(inputLine['utterance']))
+                    output_conversation = self.extractText(targetLine['utterance'])
+
+                triples = self.extractText(conversation['kb'], True)
+
+                if not valid and not test:  # Filter wrong samples (if one of the list is empty)
+                    if truncate and ( len(input_conversation[:]) >= 40 or len(output_conversation[:]) >= 40) :
+                    # truncate if too long
+                        self.trainingSamples.append([input_conversation[len(input_conversation) - 40:], output_conversation[:40], triples])
+                        self.txtTrainingSamples.append([input_txt_conversation[:], output_txt_conversation])
+                    else:
+                        self.trainingSamples.append([input_conversation[:], output_conversation[:], triples])
+                        self.txtTrainingSamples.append([input_txt_conversation[:], output_txt_conversation])
+                elif valid:
+                    if truncate and (len(input_conversation[:]) >= 40 or len(output_conversation[:]) >= 40):
+                        self.validationSamples.append([input_conversation[len(input_conversation) - 40:], output_conversation[:40], triples])
+                    else:
+                        self.validationSamples.append([input_conversation[:], output_conversation[:], triples])
+                    self.txtValidationSamples.append([input_txt_conversation[:], output_txt_conversation])
+                elif test:
+                    self.testSamples.append([input_conversation[:], output_conversation[:], triples])
 
     def extractText(self, line, kb = False):
         """Extract the words from a sample lines
@@ -574,17 +637,18 @@ class TextData:
             for triple in line:
                 entities=[]
                 for entity in triple:
-                    entities.append(self.getWordId(entity))
+                    entities.append(self.getWordId(entity.lower()))
                 triples.append(entities)
             return triples
         else:
             sentences = []  # List[List[str]]
             # Extract sentences
-            sentencesToken = re.findall(r"[\w']+|[^\s\w']", line)
+            sentencesToken = re.findall(r"[\w']+|[^\s\w']", line.lower())
 
             # We add sentence by sentence until we reach the maximum length
             for i in range(len(sentencesToken)):
-                token = sentencesToken[i]
+                token = sentencesToken[i].strip(",").strip(".").strip(":").strip("?").\
+                    strip("!").strip(";").strip(' \n\t').strip(" ")
                 sentences.append(self.getWordId(token))  # Create the vocabulary and the training sentences
 
             return sentences
