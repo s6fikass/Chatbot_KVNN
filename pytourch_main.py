@@ -371,7 +371,7 @@ def evaluate_randomly(data, encoder, decoder):
 
 def evaluate_model(args, data, encoder, decoder):
 
-    batches = data.getBatches(args.batch_size,valid=True, transpose=False)
+    batches = data.getBatches(args.batch_size,test=True, transpose=False)
     all_predicted = []
     target_batches = []
     individual_metric = []
