@@ -44,7 +44,8 @@ def sequence_mask(sequence_length, max_len=None):
     seq_range_expand = seq_range.unsqueeze(0).expand(batch_size, max_len)
 
     seq_range_expand = Variable(seq_range_expand)
-    if sequence_length.is_cuda:
+
+    if USE_CUDA:
         seq_range_expand = seq_range_expand.cuda()
 
     seq_length_expand = (sequence_length.unsqueeze(1)
