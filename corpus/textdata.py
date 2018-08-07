@@ -19,6 +19,7 @@ Loads the dialogue corpus, builds the vocabulary
 
 import numpy as np
 import nltk  # For tokenize
+import torch
 from tqdm import tqdm  # Progress bar
 import pickle  # Saving the data
 import math  # For float comparison
@@ -325,6 +326,9 @@ class TextData:
             for samples in genNextSamples():
                 batch = self.createMyBatch(samples, transpose)
                 batches.append(batch)
+        # remove
+        #if len(batches[len(batches)-1].encoderSeqs)!=batches or len(batches[len(batches)-1].decoderSeqs) != batch_size :
+        batches.pop()
 
         return batches
 
@@ -347,8 +351,8 @@ class TextData:
         reference_sentences = []
         for target_batch, pridictions in zip(target_batches, all_predictions):
             for target, pridiction in zip(target_batch, pridictions):
-                reference_sentences.append([self.sequence2str(target)])
-                candidate_sentences.append(self.sequence2str(pridiction))
+                reference_sentences.append([self.sequence2str(target,clean=True)])
+                candidate_sentences.append(self.sequence2str(pridiction,clean=True, tensor=True))
         return candidate_sentences, reference_sentences
 
     def loadCorpus(self):
@@ -694,7 +698,7 @@ class TextData:
             print('Targets: {}'.format(self.batchSeq2str(batch.targetSeqs, seqId=i)))
             print('Weights: {}'.format(' '.join([str(weight) for weight in [batchWeight[i] for batchWeight in batch.weights]])))
 
-    def sequence2str(self, sequence, clean=False, reverse=False):
+    def sequence2str(self, sequence, clean=False, reverse=False,tensor = False):
         """Convert a list of integer into a human readable string
         Args:
             sequence (list<int>): the sentence to print
@@ -706,6 +710,8 @@ class TextData:
 
         if len(sequence) == 0:
             return ''
+        if tensor:
+            sequence=sequence.numpy()
 
         if not clean:
             return ' '.join([self.id2word[idx] for idx in sequence])
