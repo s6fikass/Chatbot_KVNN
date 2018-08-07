@@ -1,3 +1,7 @@
+try:
+    from tqdm import tqdm
+except:
+    from __future__ import tqdm
 import unicodedata
 import string
 import re
@@ -8,7 +12,7 @@ import math
 import socket
 import os
 from json import JSONDecoder
-from tqdm import tqdm
+
 from reader import Data,Vocabulary
 import argparse
 
