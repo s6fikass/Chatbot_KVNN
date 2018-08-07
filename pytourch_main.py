@@ -1,4 +1,5 @@
 #from tqdm import tqdm
+from __future__ import absolute_import
 import unicodedata
 import string
 import re
