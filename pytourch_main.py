@@ -1,7 +1,5 @@
-try:
-    from tqdm import tqdm
-except:
-    from __future__ import tqdm
+from __future__ import tqdm
+
 import unicodedata
 import string
 import re
