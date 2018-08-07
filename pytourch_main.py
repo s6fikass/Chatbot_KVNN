@@ -736,6 +736,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
     #args.model="KVSeq2Seq"
     #args.val=True
+    if args.cuda:
+        USE_CUDA = True
     print(args)
     main(args)
 
