@@ -1,5 +1,4 @@
-from __future__ import tqdm
-
+#from tqdm import tqdm
 import unicodedata
 import string
 import re
