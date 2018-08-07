@@ -36,8 +36,8 @@ from torch.autograd import Variable
 
 USE_CUDA = False
 
+
 def sequence_mask(sequence_length, max_len=None):
-    print("type", type(sequence_length))
     if max_len is None:
         max_len = sequence_length.data.max()
     batch_size = sequence_length.size(0)
@@ -58,7 +58,7 @@ def masked_cross_entropy(logits, target, target_lengths):
     length = Variable(torch.LongTensor(target_lengths))
 
     if USE_CUDA:
-        length.cuda()
+        length = length.cuda()
 
     """
     Args:
