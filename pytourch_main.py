@@ -1,5 +1,4 @@
-#from tqdm import tqdm
-from __future__ import absolute_import
+from tqdm import tqdm
 import unicodedata
 import string
 import re
@@ -26,7 +25,7 @@ from torch import optim
 import torch.nn.functional as F
 from torch.nn.utils.rnn import pad_packed_sequence, pack_padded_sequence
 #from masked_cross_entropy import *
-
+import nltk
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import numpy as np
@@ -128,7 +127,7 @@ def train_kb(args, input_batches, target_batches, kb_batch, encoder, decoder, en
     # Choose whether to use teacher forcing
     use_teacher_forcing = random.random() < teacher_forcing_ratio
 
-    # TODO: Get targets working
+
     if True:
         # Run through decoder one time step at a time
         for t in range(max_target_length):
@@ -139,7 +138,6 @@ def train_kb(args, input_batches, target_batches, kb_batch, encoder, decoder, en
             all_decoder_outputs[t] = decoder_output
 
             decoder_input = target_batches[t]
-            # TODO decoder_input = target_variable[di] # Next target is next input
 
     loss = masked_cross_entropy(
             all_decoder_outputs.transpose(0, 1).contiguous(),  # seq x batch -> batch x seq
@@ -319,7 +317,8 @@ def evaluate(vocab,encoder, decoder, input_seqs, input_length=None):
 
     decoder_context = encoder_outputs[-1]#Variable(torch.zeros(batch_size, decoder.hidden_size))
     decoder_hidden = encoder_hidden  # Use last (forward) hidden state from encoder
-    all_decoder_outputs = Variable(torch.zeros(max_length, batch_size))
+    all_decoder_predictions = Variable(torch.zeros(max_length, batch_size))
+    #all_decoder_outputs = Variable(torch.zeros(max_target_length, batch_size, decoder.output_size))
     if USE_CUDA:
         decoder_input = decoder_input.cuda()
 
@@ -347,7 +346,7 @@ def evaluate(vocab,encoder, decoder, input_seqs, input_length=None):
         # else:
         #     decoded_words.append(vocab.id2word[ni])
 
-        all_decoder_outputs[di]= topi.squeeze(1)
+        all_decoder_predictions[di]= topi.squeeze(1)
 
 
         # Next input is chosen word
@@ -358,7 +357,7 @@ def evaluate(vocab,encoder, decoder, input_seqs, input_length=None):
     encoder.train(True)
     decoder.train(True)
 
-    return all_decoder_outputs
+    return all_decoder_predictions
 
 
 def evaluate_randomly(data, encoder, decoder):
@@ -372,21 +371,43 @@ def evaluate_randomly(data, encoder, decoder):
 
 def evaluate_model(args, data, encoder, decoder):
 
-    batches = data.getBatches(args.batch_size, transpose=False)
-    print(len(batches))
+    batches = data.getBatches(args.batch_size,valid=True, transpose=False)
+    all_predicted = []
+    target_batches = []
+    individual_metric = []
 
     for batch in batches:
         input_seq = batch.encoderSeqs
         target_seq = batch.decoderSeqs
 
-        evaluate_and_calculate_blue(data, encoder, decoder, input_seq, target_seq, batch.encoderSeqsLen)
-        break
+        batch_prediction,batch_bleu = evaluate_and_calculate_blue(data, encoder, decoder, input_seq,
+                                                                  target_seq, batch.encoderSeqsLen)
+        all_predicted.append(batch_prediction)
+        target_batches.append(target_seq)
+        individual_metric.append(batch_bleu)
 
-def evaluate_and_calculate_blue(data, encoder, decoder, input_sentence, target_sentence, input_length):
-    output_words = evaluate(data, encoder, decoder, input_sentence, input_length)
+    candidates, references = data.get_candidates(target_batches, all_predicted)
 
-    for sen in output_words.transpose(0,1):
-        print(data.sequence2str(sen.numpy(),clean=True))
+    global_metric_score = nltk.translate.bleu_score.corpus_bleu(references, candidates)
+
+    return global_metric_score, individual_metric
+
+def evaluate_and_calculate_blue(data, encoder, decoder, input_seq, target_seq, input_length):
+
+    batch_predictions = evaluate(data, encoder, decoder, input_seq, input_length)
+    batch_predictions = batch_predictions.transpose(0, 1)
+    batch_metric_score = 0
+
+    for i, sen in enumerate(batch_predictions):
+        predicted = data.sequence2str(sen.numpy(), clean=True)
+        reference = data.sequence2str(target_seq[i], clean=True)
+        batch_metric_score += nltk.translate.bleu_score.sentence_bleu([reference], predicted)
+
+    batch_metric_score= batch_metric_score/len(target_seq)
+
+    return batch_predictions, batch_metric_score
+
+
 
 import io
 import torchvision
@@ -539,7 +560,9 @@ def main(args):
     print('Model Compiled.')
     print('Training. Ctrl+C to end early.')
     if args.val:
-        evaluate_model(args, textdata, encoder, decoder)
+        global_metric_score, individual_metric = evaluate_model(args, textdata, encoder, decoder)
+        print("Model Bleu using corpus bleu: ", global_metric_score)
+        print("Model Bleu using sentence bleu: ", sum(individual_metric)/len(individual_metric))
     else:
 
         while epoch < n_epochs:
@@ -552,9 +575,9 @@ def main(args):
                 epoch_ec = 0
                 epoch_dc = 0
 
-                while steps_done < steps_per_epoch:
-                #for current_batch in tqdm(batches, desc='Processing batches'):
-                    current_batch=batches[steps_done]
+                #while steps_done < steps_per_epoch:
+                for current_batch in tqdm(batches, desc='Processing batches'):
+                    #current_batch=batches[steps_done]
                     x = current_batch.encoderSeqs
                     y = current_batch.decoderSeqs
 
@@ -585,7 +608,7 @@ def main(args):
                     epoch_loss += loss
                     epoch_ec += ec
                     epoch_dc += dc
-                    steps_done += 1
+                    #steps_done += 1
 
                 # Keep track of loss
                 print_loss_total += epoch_loss
@@ -642,6 +665,7 @@ def main(args):
                 print('Model training stopped early.')
                 break
 
+
         # model.save_weights("model_weights_nkbb.hdf5")
         print('Model training complete.')
         print('Saving Model.')
@@ -691,7 +715,7 @@ if __name__ == '__main__':
 
     named_args.add_argument('-b', '--batch-size', metavar='|',
                             help="""Location of validation data""",
-                            required=False, default=100, type=int)
+                            required=False, default=10, type=int)
 
     named_args.add_argument('-tm', '--loadFilename', metavar='|',
                             help="""Location of trained model """,
