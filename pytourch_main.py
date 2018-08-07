@@ -588,6 +588,9 @@ def main(args):
 
                     input_batch = Variable(torch.LongTensor(x)).transpose(0, 1)
                     target_batch = Variable(torch.LongTensor(y)).transpose(0, 1)
+                    if USE_CUDA:
+                        input_batch.cuda()
+                        target_batch.cuda()
 
                     if args.model == "KVSeq2Seq":
                         kb = current_batch.kb
