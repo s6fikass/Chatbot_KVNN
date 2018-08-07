@@ -256,6 +256,8 @@ def evaluate_sample(vocab,encoder, decoder, input_seqs, input_length=None):
 
     if USE_CUDA:
         decoder_input = decoder_input.cuda()
+        decoder_context = decoder_context.cuda()
+        decoder_hidden=decoder_hidden.cuda()
 
     # Store output words and attention states
     decoded_words = []
@@ -321,6 +323,9 @@ def evaluate(vocab,encoder, decoder, input_seqs, input_length=None):
     #all_decoder_outputs = Variable(torch.zeros(max_target_length, batch_size, decoder.output_size))
     if USE_CUDA:
         decoder_input = decoder_input.cuda()
+        decoder_context = decoder_context.cuda()
+        decoder_hidden = decoder_hidden.cuda()
+        all_decoder_predictions = all_decoder_predictions.cuda()
 
     # Store output words and attention states
     decoded_words = []
@@ -541,8 +546,8 @@ def main(args):
 
     # Move models to GPU
     if USE_CUDA:
-        encoder.cuda()
-        decoder.cuda()
+        encoder=encoder.cuda()
+        decoder=decoder.cuda()
 
     # Keep track of time elapsed and running averages
     start = time.time()
@@ -588,10 +593,15 @@ def main(args):
 
                     input_batch = Variable(torch.LongTensor(x)).transpose(0, 1)
                     target_batch = Variable(torch.LongTensor(y)).transpose(0, 1)
+                    if USE_CUDA:
+                        input_batch = input_batch.cuda()
+                        target_batch = target_batch.cuda()
 
                     if args.model == "KVSeq2Seq":
                         kb = current_batch.kb
                         kb_batch = Variable(torch.LongTensor(kb))
+                        if USE_CUDA:
+                            kb_batch=kb_batch.cuda()
 
                         # Run the train function
                         loss, ec, dc = train_kb(args, input_batch, target_batch, kb_batch,
