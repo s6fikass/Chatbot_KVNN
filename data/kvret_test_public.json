@@ -468,6 +468,7 @@
             "distance": false,
             "traffic_info": true,
             "poi_type": false,
+
             "address": false,
             "poi": false
           },

@@ -460,7 +460,7 @@ def evaluate_and_show_attention(vocab, encoder, decoder, input_sentence, target_
         print('=', target_sentence)
     print('<', output_sentence)
 
-    show_attention(input_sentence, output_words, attentions)
+    #show_attention(input_sentence, output_words, attentions)
 
     # Show input, target, output text in visdom
     win = 'evaluted (%s)' % hostname
