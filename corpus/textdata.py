@@ -580,6 +580,8 @@ class TextData:
                 if conversation['lines'][i]['turn'] == 'driver':
                     inputLine = conversation['lines'][i]
                     targetLine = conversation['lines'][i+1]
+                    targetIntent=conversation['intent']
+                    print(targetIntent)
 
                     input_conversation.extend(self.extractText(inputLine['utterance']))
                     output_conversation.extend(self.extractText(targetLine['utterance']))
@@ -594,6 +596,8 @@ class TextData:
 
                     inputLine = conversation['lines'][i]
                     targetLine = conversation['lines'][i+1]
+                    targetIntent = conversation['intent']
+
 
                     if i >= 1:
                         input_conversation.append(self.eouToken)
