@@ -259,7 +259,6 @@ def evaluate_sample(vocab,encoder, decoder, input_seqs, input_length=None):
     if USE_CUDA:
         decoder_input = decoder_input.cuda()
         decoder_context = decoder_context.cuda()
-        decoder_hidden=decoder_hidden.cuda()
 
     # Store output words and attention states
     decoded_words = []
@@ -596,6 +595,7 @@ def main(args):
 
                     input_batch = Variable(torch.LongTensor(x)).transpose(0, 1)
                     target_batch = Variable(torch.LongTensor(y)).transpose(0, 1)
+
                     if USE_CUDA:
                         input_batch = input_batch.cuda()
                         target_batch = target_batch.cuda()
