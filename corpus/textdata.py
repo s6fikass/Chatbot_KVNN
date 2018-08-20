@@ -28,7 +28,7 @@ import random
 import re
 import string
 import collections
-
+from collections import defaultdict
 from corpus.kvretdata import KvretData
 import csv
 
@@ -71,6 +71,7 @@ class TextData:
         # Model parameters
         self.vocabularySize = 0
         self.corpus = 'kvret'
+        self.glove_fileName="data/glove_data/glove.840B.300d.txt"
 
         # Path variables
         self.corpusDir = os.path.join(dataFile)
@@ -92,6 +93,11 @@ class TextData:
         self.txtValidationSamples = []
         self.validationSamples = []
         self.testSamples = []
+        print("Loading embedding from disks...")
+        self.word_to_embedding_dict = self.load_embedding_from_disks(self.glove_fileName)
+
+        print("Embedding loaded from disks.")
+
 
         self.word2id = {}
         self.id2word = {}  # For a rapid conversion (Warning: If replace dict by list, modify the filtering to avoid linear complexity with del)
@@ -231,6 +237,7 @@ class TextData:
             batch.targetSeqs.append(batch.decoderSeqs[-1][1:])  # Same as decoder, but shifted to the left (ignore the <go>)
             batch.kb_inputs.append(sample[2])
 
+
             batch.encoderSeqsLen.append(len(sample[0]))
             batch.decoderSeqsLen.append(len(sample[1])+2)
 
@@ -243,7 +250,8 @@ class TextData:
             batch.weights.append([1.0] * len(batch.targetSeqs[i]) + [0.0] * (self.maxLengthDeco - len(batch.targetSeqs[i])))
             batch.decoderSeqs[i] = batch.decoderSeqs[i] + [self.padToken] * (self.maxLengthDeco - len(batch.decoderSeqs[i]))
             batch.targetSeqs[i]  = batch.targetSeqs[i]  + [self.padToken] * (self.maxLengthDeco - len(batch.targetSeqs[i]))
-            batch.kb_inputs[i] = batch.kb_inputs[i]+ [0, 0, 0]* (self.maxTriples - len(batch.kb_inputs[i]))
+
+            batch.kb_inputs[i] = batch.kb_inputs[i] # + [0, 0, 0]* (self.maxTriples - len(batch.kb_inputs[i]))
 
 
 
@@ -374,6 +382,7 @@ class TextData:
                 self.createFullCorpus(corpusData.getConversations())
                 self.createFullCorpus(validData.getConversations(),valid=True)
                 self.createFullCorpus(testData.getConversations(),test=True)
+
                 self.saveDataset(self.fullSamplesPath)
             else:
                 self.loadDataset(self.fullSamplesPath)
@@ -404,10 +413,12 @@ class TextData:
                 'idCount': self.idCount,
                 'trainingSamples': self.trainingSamples,
                 'validationSamples': self.validationSamples,
-                'testSamples': self.testSamples
+                'testSamples': self.testSamples,
             }
             pickle.dump(data, handle, -1)  # Using the highest protocol available
-            # Assuming res is a list of lists
+
+
+
             with open("data/samples/train.csv", "w") as output:
 
                 writer = csv.writer(output, lineterminator='\n')
@@ -490,10 +501,12 @@ class TextData:
         # This is also where we update the correnspondance dictionaries
         specialTokens = {  # TODO: bad HACK to filter the special tokens. Error prone if one day add new special tokens
             self.padToken,
-            self.eosToken,
             self.goToken,
+            self.eouToken,
+            self.eosToken,
             self.unknownToken
         }
+
         newMapping = {}  # Map the full words ids to the new one (TODO: Should be a list)
         newId = 0
 
@@ -545,9 +558,9 @@ class TextData:
         """
         # Add standard tokens
         self.padToken = self.getWordId('<pad>')  # Padding (Warning: first things to add > id=0 !!)
-        self.eosToken = self.getWordId('<eos>')  # End of sequence
         self.goToken = self.getWordId('<go>')  # Start of sequence
-        self.eouToken= self.getWordId('<eou>')
+        self.eouToken = self.getWordId('<eou>')  # Start of sequence
+        self.eosToken = self.getWordId('<eos>')  # End of sequence
         self.unknownToken = self.getWordId('<unknown>')  # Word dropped from vocabulary
 
         # Preprocessing data
@@ -557,7 +570,7 @@ class TextData:
 
         # The dataset will be saved in the same order it has been extracted
 
-    def extractConversation(self, conversation, valid, test, herarical=False, truncate = True):
+    def extractConversation(self, conversation, valid, test, herarical=False, truncate = False):
         """Extract the sample lines from the conversations
         Args:
             conversation (Obj): a conversation object containing the lines to extract
@@ -570,7 +583,7 @@ class TextData:
         output_conversation = []
         input_txt_conversation = []
         output_txt_conversation = []
-
+        triples = self.extractText(conversation['kb'], kb=True)
         for i in tqdm_wrap(
             range(0, len(conversation['lines']) - 1, step),  # We ignore the last line (no answer for it)
             desc='Conversation',
@@ -580,7 +593,7 @@ class TextData:
                 if conversation['lines'][i]['turn'] == 'driver':
                     inputLine = conversation['lines'][i]
                     targetLine = conversation['lines'][i+1]
-                    targetIntent=conversation['intent']
+                    targetIntent= conversation['intent']
                     print(targetIntent)
 
                     input_conversation.extend(self.extractText(inputLine['utterance']))
@@ -593,10 +606,12 @@ class TextData:
             else:
 
                 if conversation['lines'][i]['turn'] == 'driver':
-
+                    targeState="Unknown"
                     inputLine = conversation['lines'][i]
                     targetLine = conversation['lines'][i+1]
                     targetIntent = conversation['intent']
+                    if "slots" in targetLine:
+                        targeState = targetLine["slots"]
 
 
                     if i >= 1:
@@ -611,10 +626,10 @@ class TextData:
                     input_txt_conversation.append(inputLine['utterance'])
                     output_txt_conversation = targetLine['utterance']
 
-                    input_conversation.extend(self.extractText(inputLine['utterance']))
-                    output_conversation = self.extractText(targetLine['utterance'])
+                    input_conversation.extend(self.extractText(inputLine['utterance'], conversation['kb']))
+                    output_conversation = self.extractText(targetLine['utterance'], conversation['kb'])
 
-                triples = self.extractText(conversation['kb'], True)
+
 
                 if not valid and not test:  # Filter wrong samples (if one of the list is empty)
                     if truncate and ( len(input_conversation[:]) >= 40 or len(output_conversation[:]) >= 40) :
@@ -633,7 +648,7 @@ class TextData:
                 elif test:
                     self.testSamples.append([input_conversation[:], output_conversation[:], triples])
 
-    def extractText(self, line, kb = False):
+    def extractText(self, line, triples=[], kb = False):
         """Extract the words from a sample lines
         Args:
             line (str): a line containing the text to extract
@@ -649,17 +664,96 @@ class TextData:
                 triples.append(entities)
             return triples
         else:
+            line = line.lower()
+            count = 0
+            entities ={}
+
+            for ki in triples:
+                if 'day' in ki[1].lower() and len(ki[2].lower().split(",")) > 1:
+                    for kki in ki[2].lower().split(","):
+                        if kki in re.findall(r"[\w']+|[^\s\w']", line):
+                            if kki.strip() == ki[2].lower().split(",")[0]:
+                                count = count + 1
+                                if "raining" in line:
+                                    print(line)
+                                    line = re.sub(kki.strip(), "_entity_"+str(count)+"_", line)
+                                    print(line)
+                                entities["_entity_"+str(count)+"_"]=kki.strip()
+                            if kki.strip() == ki[2].lower().split(",")[1]:
+                                count = count + 1
+                                line = re.sub(kki.strip(), "_entity_" + str(count) + "_", line)
+                                entities["_entity_"+str(count)+"_"] = kki.strip()
+                            if kki.strip() == ki[2].lower().split(",")[2]:
+                                count = count + 1
+                                line = re.sub(kki.strip(), "_entity_" + str(count) + "_", line)
+                                entities["_entity_"+str(count)+"_"] = kki.strip()
+                else:
+                    if ki[2].lower() in line:
+                        count = count + 1
+                        line = re.sub(ki[2].strip(), "_entity_" + str(count) + "_", line)
+                        entities["_entity_"+str(count)+"_"] = ki[2].strip()
+                if ki[0].lower() in line:
+                    count = count + 1
+                    line = re.sub(ki[0].strip(), "_entity_" + str(count) + "_", line)
+                    entities["_entity_"+str(count)+"_"] = ki[0].strip()
+
+
             sentences = []  # List[List[str]]
             # Extract sentences
             sentencesToken = re.findall(r"[\w']+|[^\s\w']", line.lower())
 
             # We add sentence by sentence until we reach the maximum length
             for i in range(len(sentencesToken)):
-                token = sentencesToken[i].strip(",").strip(".").strip(":").strip("?").\
-                    strip("!").strip(";").strip(' \n\t').strip(" ")
-                sentences.append(self.getWordId(token))  # Create the vocabulary and the training sentences
+                if sentencesToken[i] in entities:
+                    sentences.append(self.getWordId(entities[sentencesToken[i]]))
+                else:
+                    token = sentencesToken[i].strip(",").strip(".").strip(":").strip("?").\
+                    strip("!").strip(";").strip(' \n\t').strip().strip(" ").strip('\t')
+                    if len(token) == 0:
+                        continue
+                    sentences.append(self.getWordId(token))  # Create the vocabulary and the training sentences
 
             return sentences
+
+    def load_embedding_from_disks(self, glove_filename, with_indexes=False):
+        """
+        Read a GloVe txt file. If `with_indexes=True`, we return a tuple of two dictionnaries
+        `(word_to_index_dict, index_to_embedding_array)`, otherwise we return only a direct
+        `word_to_embedding_dict` dictionnary mapping from a string to a numpy array.
+        """
+        if with_indexes:
+            word_to_index_dict = dict()
+            index_to_embedding_array = []
+        else:
+            word_to_embedding_dict = dict()
+
+        with open(glove_filename, 'r') as glove_file:
+            for (i, line) in enumerate(glove_file):
+
+                split = line.split(' ')
+
+                word = split[0]
+
+                representation = split[1:]
+                representation = np.array(
+                    [float(val) for val in representation]
+                )
+
+                if with_indexes:
+                    word_to_index_dict[word] = i
+                    index_to_embedding_array.append(representation)
+                else:
+                    word_to_embedding_dict[word] = representation
+
+        _WORD_NOT_FOUND = [0.0] * len(representation)  # Empty representation for unknown words.
+        if with_indexes:
+            _LAST_INDEX = i + 1
+            word_to_index_dict = defaultdict(lambda: _LAST_INDEX, word_to_index_dict)
+            index_to_embedding_array = np.array(index_to_embedding_array + [_WORD_NOT_FOUND])
+            return word_to_index_dict, index_to_embedding_array
+        else:
+            word_to_embedding_dict = defaultdict(lambda: _WORD_NOT_FOUND, word_to_embedding_dict)
+            return word_to_embedding_dict
 
     def getWordId(self, word, create=True):
         """Get the id of the word (and add it to the dictionary if not existing). If the word does not exist and
@@ -711,9 +805,11 @@ class TextData:
         Return:
             str: the sentence
         """
-
-        if len(sequence) == 0:
-            return ''
+        try:
+            if len(sequence) == 0:
+                return ''
+        except:
+            print(sequence)
         if tensor:
             sequence=sequence.numpy()
 

@@ -104,8 +104,6 @@ class KvretData:
                             else:
                                 triples.append([items[subject], pred, "-"])
                 convObj["kb"] = triples
-                convObj["states"] = triples
-                convObj["main entity"]= subject
                 convObj["intent"] = dialogue["scenario"]["task"]["intent"]
                 conversation.append(convObj)
         return [lines, conversation]
