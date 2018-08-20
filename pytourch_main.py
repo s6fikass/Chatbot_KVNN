@@ -158,8 +158,45 @@ def train_kb(args, input_batches, target_batches, kb_batch, encoder, decoder, en
     decoder_optimizer.step()
     return loss.item(), ec, dc
 
+
+def isEntity(data, targetword, kb):
+
+    if len(kb)>1:
+        for k in kb:
+            if targetword == k[0] and targetword != 0:
+                return True
+            if targetword == k[2] and targetword != 0:
+                return True
+    else:
+        return False
+
+    return True
+
+from sklearn.metrics.pairwise import cosine_distances
+
+
+def entity_similarity_loss(data, word, predicted):
+    true_seq = data.id2word[word]
+    prediceted_seq = data.id2word[predicted]
+
+    true_vec = np.zeros(300)
+    predicted_vec = np.zeros(300)
+
+    for w in true_seq.split(" "):
+        true_vec = np.add(true_vec,data.word_to_embedding_dict[w])
+
+    true_vec = np.divide(true_vec,len(true_seq.split(" "))).reshape(1, -1)
+
+    for w in prediceted_seq.split(" "):
+        predicted_vec = np.add(predicted_vec, data.word_to_embedding_dict[w])
+
+    predicted_vec = np.divide(predicted_vec, len(prediceted_seq.split(" "))).reshape(1, -1)
+
+    return cosine_distances(true_vec, predicted_vec)[0, 0]
+
+
 def train(args, input_batches, target_batches, encoder, decoder, encoder_optimizer,
-          decoder_optimizer, criterion,batch_size, input_lengths, target_lengths, clip = 50.0):
+          decoder_optimizer, criterion,batch_size, input_lengths, target_lengths, clip = 50.0,kb=[]):
 
     # Zero gradients of both optimizers
     encoder_optimizer.zero_grad()
@@ -188,6 +225,9 @@ def train(args, input_batches, target_batches, encoder, decoder, encoder_optimiz
     # Choose whether to use teacher forcing
     use_teacher_forcing = random.random() < teacher_forcing_ratio
 
+    entity_additional_loss = 0
+    entity_loss_cof = 0.8
+
     # TODO: Get targets working
     if True:
         # Run through decoder one time step at a time
@@ -197,15 +237,23 @@ def train(args, input_batches, target_batches, encoder, decoder, encoder_optimiz
                 decoder_input, decoder_context, decoder_hidden, encoder_outputs
             )
             all_decoder_outputs[t] = decoder_output
+            topv, topi = decoder_output.data.topk(1)
+            topi=topi.squeeze(1)
+
+            for idx,word in enumerate(decoder_input):
+                if len(kb[idx])>1:
+                    if isEntity(args.data, word.item(), kb[idx]):
+                        entity_additional_loss += entity_similarity_loss(args.data, word.item(), topi[idx].item())
 
             decoder_input = target_batches[t]
-            # TODO decoder_input = target_variable[di] # Next target is next input
 
     loss = masked_cross_entropy(
             all_decoder_outputs.transpose(0, 1).contiguous(),  # seq x batch -> batch x seq
             target_batches.transpose(0, 1).contiguous(),  # seq x batch -> batch x seq
         target_lengths
         )
+
+    loss.add(entity_additional_loss*entity_loss_cof)
 
     loss.backward()
 
@@ -503,7 +551,7 @@ def main(args):
     model_dir = "pytourch_trained_model"
 
     textdata= TextData("data/kvret_train_public.json",'data/kvret_dev_public.json','data/kvret_test_public.json')
-
+    args.data = textdata
     print('Datasets Loaded.')
     print('Compiling Model.')
 
@@ -586,7 +634,8 @@ def main(args):
                 for current_batch in tqdm(batches, desc='Processing batches'):
                     #current_batch=batches[steps_done]
                     x = current_batch.encoderSeqs
-                    y = current_batch.decoderSeqs
+                    y = current_batch.targetSeqs
+                    kb_batch=current_batch.kb_inputs
 
                     # Turn padded arrays into (batch_size x max_len) tensors, transpose into (max_len x batch_size)
                     target_lengths = current_batch.decoderSeqsLen
@@ -615,7 +664,7 @@ def main(args):
                     # Run the train function
                     loss, ec, dc = train(args, input_batch, target_batch, encoder, decoder,
                                          encoder_optimizer, decoder_optimizer, criterion,
-                                         args.batch_size, input_lengths, target_lengths
+                                         args.batch_size, input_lengths, target_lengths, kb=kb_batch
                                          )
 
                     epoch_loss += loss
@@ -636,6 +685,7 @@ def main(args):
                     continue
 
                 if epoch % print_every == 0:
+
                     print_loss_avg = print_loss_total / print_every
                     print_loss_total = 0
                     print_summary = '%s (%d %d%%) %.4f' % (
@@ -644,6 +694,7 @@ def main(args):
                     evaluate_randomly(textdata, encoder, decoder)
 
                 if epoch % plot_every == 0:
+
                     plot_loss_avg = plot_loss_total / plot_every
                     plot_losses.append(plot_loss_avg)
                     plot_loss_total = 0
