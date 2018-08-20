@@ -611,7 +611,7 @@ def main(args):
     eca = 0
     dca = 0
 
-    save_every =500
+    save_every =5
     print('Model Compiled.')
     print('Training. Ctrl+C to end early.')
     if args.val:
