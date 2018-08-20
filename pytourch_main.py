@@ -611,7 +611,7 @@ def main(args):
     eca = 0
     dca = 0
 
-    save_every =500
+    save_every =5
     print('Model Compiled.')
     print('Training. Ctrl+C to end early.')
     if args.val:
@@ -723,7 +723,7 @@ def main(args):
                             'en_opt': encoder_optimizer.state_dict(),
                             'de_opt': decoder_optimizer.state_dict(),
                             'loss': print_loss_total
-                        }, os.path.join(directory, '{}_{}.tar'.format(epoch, 'backup_bidir_model')))
+                        }, os.path.join(directory, '{}_{}.tar'.format(epoch, 'backup_bidir_model_kb')))
 
             except KeyboardInterrupt as e:
                 print('Model training stopped early.')
