@@ -63,7 +63,7 @@ class TextData:
         """
         return list(TextData.availableCorpus.keys())
 
-    def __init__(self,dataFile,validFile, testFile):
+    def __init__(self,dataFile,validFile, testFile, useGlove = False):
         """Load all conversations
         Args:
             args: parameters of the model
@@ -93,10 +93,11 @@ class TextData:
         self.txtValidationSamples = []
         self.validationSamples = []
         self.testSamples = []
-        print("Loading embedding from disks...")
-        self.word_to_embedding_dict = self.load_embedding_from_disks(self.glove_fileName)
 
-        print("Embedding loaded from disks.")
+        if useGlove:
+            print("Loading Glove embedding from disks...")
+            self.word_to_embedding_dict = self.load_embedding_from_disks(self.glove_fileName)
+            print("Glove Embedding loaded from disks.")
 
 
         self.word2id = {}
