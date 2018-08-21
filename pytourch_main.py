@@ -240,10 +240,11 @@ def train(args, input_batches, target_batches, encoder, decoder, encoder_optimiz
             topv, topi = decoder_output.data.topk(1)
             topi=topi.squeeze(1)
 
-            for idx,word in enumerate(decoder_input):
-                if len(kb[idx])>1:
-                    if isEntity(args.data, word.item(), kb[idx]):
-                        entity_additional_loss += entity_similarity_loss(args.data, word.item(), topi[idx].item())
+            if args.glove:
+                for idx,word in enumerate(decoder_input):
+                    if len(kb[idx])>1:
+                        if isEntity(args.data, word.item(), kb[idx]):
+                            entity_additional_loss += entity_similarity_loss(args.data, word.item(), topi[idx].item())
 
             decoder_input = target_batches[t]
 
@@ -712,18 +713,20 @@ def main(args):
                     dca = 0
 
                 if epoch % save_every == 0:
-                        directory = os.path.join("trained_model", decoder.__class__.__name__,
+                    print(epoch, epoch_loss, "step-epoch-loss")
+                    directory = os.path.join("trained_model", decoder.__class__.__name__,
                                                  '{}-{}_{}'.format(n_layers, epoch, hidden_size))
-                        if not os.path.exists(directory):
-                            os.makedirs(directory)
-                        torch.save({
+
+                    if not os.path.exists(directory):
+                        os.makedirs(directory)
+                    torch.save({
                             'epoch': epoch,
                             'en': encoder.state_dict(),
                             'de': decoder.state_dict(),
                             'en_opt': encoder_optimizer.state_dict(),
                             'de_opt': decoder_optimizer.state_dict(),
                             'loss': print_loss_total
-                        }, os.path.join(directory, '{}_{}.tar'.format(epoch, 'backup_bidir_model_kb')))
+                        }, os.path.join(directory, '{}_{}.tar'.format(epoch, "model_glove_{}".format(args.glove))))
 
             except KeyboardInterrupt as e:
                 print('Model training stopped early.')
@@ -797,12 +800,22 @@ if __name__ == '__main__':
                             help="""to use cuda """,
                             required=False, default=False, type=bool)
 
+    named_args.add_argument('-glove', '--glove', metavar='|',
+                            help="""to use glove embeddings """,
+                            required=False, default=False, type=bool)
+
     args = parser.parse_args()
     #args.model="KVSeq2Seq"
     #args.val=True
+    try:
+        torch.LongTensor([1,2]).cuda()
+        USE_CUDA = True
+    except:
+        print("no cuda")
+        USE_CUDA = False
+
     if args.cuda:
         USE_CUDA = True
-    print(args)
     main(args)
 
 
