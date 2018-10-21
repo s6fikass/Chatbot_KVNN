@@ -11,16 +11,30 @@
 # hypothesis = [['It', 'is', 'a', 'cat', 'at', 'room'], ['It', 'is', 'a', 'cat', 'at', 'room']]
 # reference = [['It', 'is', 'a', 'cat', 'inside', 'the', 'room']]
 # #there may be several references
-# # BLEUscore = nltk.translate.bleu_score.corpus_bleu([reference,reference], hypothesis)
+# # BLEUscore = nltk.
+# +
+# translate.bleu_score.corpus_bleu([reference,reference], hypothesis)
 # # print BLEUscore
-# from corpus.textdata import TextData
-# #
+import re
+print(' '.join(re.split('(\d+)(?=[a-z]|\-)', "the nearest parking garage is dish parking at 550 alester ave.,kjh 2pm")).strip())
+s='the nearest _entity_1_ is dish parking at 550 alester ave. would you like directions there?'
+k='550 alester ave'
+
+from corpus.textdata import TextData
+#
+textdata = TextData("data/kvret_train_public.json","data/kvret_dev_public.json","data/kvret_test_public.json")
 
 # print (textdata.sequence2str(textdata.trainingSamples[0][0]))
 # print (textdata.sequence2str(textdata.trainingSamples[0][1]))
 # print (textdata.trainingSamples[0][2])
 # print (textdata.getMaxTriples())
-
+# # import numpy as np
+# # x=np.array2string(np.array(range(4)))
+# # print(x.strip("[").strip("]"))
+# input_txt_conversation=[];
+# input_txt_conversation.append("hi")
+# input_txt_conversation.append("end")
+# print(input_txt_conversation)
 # batches=textdata.getBatches(500)
 # print batches[0].kb_inputs
 # print len(batches[0].kb_inputs)
@@ -93,42 +107,4 @@
 # word_to_embedding_dict = load_embedding_from_disks(GLOVE_FILENAME, with_indexes=True)
 # print("Embedding loaded from disks.")
 from sklearn.feature_extraction.text import TfidfVectorizer
-
-documents = (
-    "Macbook GPU",
-    "Macbook GPU"
-)
-
-# tfidf_vectorizer = TfidfVectorizer()
-# tfidf_matrix = tfidf_vectorizer.fit_transform(documents)
-from corpus.textdata import TextData
-
-#textdata = TextData("data/kvret_train_public.json","data/kvret_dev_public.json","data/kvret_test_public.json")
-
-# from sklearn.metrics.pairwise import cosine_similarity
-# # print(textdata.word_to_embedding_dict["cat"])
-# print(cosine_similarity(textdata.word_to_embedding_dict["cat"], textdata.word_to_embedding_dict["cat"]))
-
-
-from sklearn.metrics.pairwise import cosine_distances
-import numpy as np
-import torch
-a=np.zeros(300)
-b=np.zeros(300)
-c=[12.3,23.1]
-f=torch.Tensor(c)
-f=f.sum()
-f=f.add(9)
-print(f.item())
-v=np.add(a,b)
-# print(v)
-v=np.divide(v,2)
-
-v=v.reshape(1, -1)
-# a=np.pad(a, (0, 1), 'constant')
-# print(a)
-# a=a.reshape(1, -1)
-#
-# ab=ab.reshape(1, -1)
-print(cosine_distances(v,v))
-# print(cosine_distances(textdata.word_to_embedding_dict["cat"].reshape(1, -1),textdata.word_to_embedding_dict["cat"].reshape(1, -1))[0,0])
+#(textdata.word_to_embedding_dict["cat"].reshape(1, -1),textdata.word_to_embedding_dict["cat"].reshape(1, -1))[0,0])
