@@ -40,6 +40,7 @@ class Batch:
         self.encoderSeqsLen = []
         self.decoderSeqs = []
         self.decoderSeqsLen = []
+        self.seqIntent=[]
         self.kb_inputs = []
         self.kb_inputs_mask = []
         self.targetSeqs = []
@@ -103,7 +104,8 @@ class TextData:
         self.word2id = {}
         self.id2word = {}  # For a rapid conversion (Warning: If replace dict by list, modify the filtering to avoid linear complexity with del)
         self.idCount = {}  # Useful to filters the words (TODO: Could replace dict by list or use collections.Counter)
-
+        self.intent2id={}
+        self.id2intent = {}
         self.loadCorpus()
 
         # Plot some stats:
@@ -237,17 +239,24 @@ class TextData:
             batch.decoderSeqs.append([self.goToken] + sample[1] + [self.eosToken])  # Add the <go> and <eos> tokens
             batch.targetSeqs.append(batch.decoderSeqs[-1][1:])  # Same as decoder, but shifted to the left (ignore the <go>)
             batch.kb_inputs.append(sample[2])
+            batch.seqIntent.append(sample[3])
 
 
             batch.encoderSeqsLen.append(len(sample[0]))
             batch.decoderSeqsLen.append(len(sample[1])+2)
+            if len(batch.decoderSeqs[i]) > self.maxLengthDeco +2:
+                print(len(batch.decoderSeqs[i]))
+                print(self.maxLengthDeco)
+                print(self.sequence2str(batch.decoderSeqs[i]))
 
-            assert len(batch.encoderSeqs[i]) <= self.maxLengthEnco
-            assert len(batch.decoderSeqs[i]) <= self.maxLengthDeco +2
+            if len(batch.encoderSeqs[i]) <= self.maxLengthEnco:
+                batch.encoderSeqs[i]= batch.encoderSeqs[i][self.maxLengthEnco:]
+            if len(batch.decoderSeqs[i]) <= self.maxLengthDeco +2:
+                batch.decoderSeqs[i]=batch.decoderSeqs[i][:self.maxLengthDeco +2]
 
             # TODO: Should use tf batch function to automatically add padding and batch samples
             # Add padding & define weight
-            batch.encoderSeqs[i]   =   [self.padToken] * (self.maxLengthEnco  - len(batch.encoderSeqs[i])) +batch.encoderSeqs[i]   # Left padding for the input
+            batch.encoderSeqs[i] = [self.padToken] * (self.maxLengthEnco  - len(batch.encoderSeqs[i])) +batch.encoderSeqs[i]   # Left padding for the input
             batch.weights.append([1.0] * len(batch.targetSeqs[i]) + [0.0] * (self.maxLengthDeco - len(batch.targetSeqs[i])))
             batch.decoderSeqs[i] = batch.decoderSeqs[i] + [self.padToken] * (self.maxLengthDeco - len(batch.decoderSeqs[i]))
             batch.targetSeqs[i]  = batch.targetSeqs[i]  + [self.padToken] * (self.maxLengthDeco - len(batch.targetSeqs[i]))
@@ -293,6 +302,23 @@ class TextData:
             #     print(self.sequence2str(samples[0][0]))
             #     print(self.sequence2str(samples[0][1]))  # Check we did not modified the original sample
         return batch
+
+    def getTestingBatch(self, batch_size=1):
+        self.batchSize = batch_size
+
+        batches = []
+
+        def genNextSamples():
+            """ Generator over the mini-batch training samples
+            """
+            for i in range(0, self.getSampleSize(), self.batchSize):
+                yield self.trainingSamples[i:min(i + self.batchSize, self.getSampleSize())]
+
+        for samples in genNextSamples():
+            batch = self.createMyBatch(samples, False)
+            batches.append(batch)
+            break
+        return batches
 
     def getBatches(self, batch_size=1,valid=False,test=False, transpose=True):
         """Prepare the batches for the current epoch
@@ -355,12 +381,15 @@ class TextData:
         """
         return len(self.word2id)
 
-    def get_candidates(self, target_batches, all_predictions):
+    def get_candidates(self, target_batches, all_predictions, references_list = False):
         candidate_sentences = []
         reference_sentences = []
         for target_batch, pridictions in zip(target_batches, all_predictions):
             for target, pridiction in zip(target_batch, pridictions):
-                reference_sentences.append([self.sequence2str(target,clean=True)])
+                if references_list:
+                    reference_sentences.append(self.sequence2str(target,clean=True))
+                else:
+                    reference_sentences.append([self.sequence2str(target, clean=True)])
                 candidate_sentences.append(self.sequence2str(pridiction,clean=True, tensor=True))
         return candidate_sentences, reference_sentences
 
@@ -412,6 +441,8 @@ class TextData:
                 'word2id': self.word2id,
                 'id2word': self.id2word,
                 'idCount': self.idCount,
+                'intent2id': self.intent2id,
+                'id2intent': self.id2intent,
                 'trainingSamples': self.trainingSamples,
                 'validationSamples': self.validationSamples,
                 'testSamples': self.testSamples,
@@ -439,6 +470,8 @@ class TextData:
             data = pickle.load(handle)  # Warning: If adding something here, also modifying saveDataset
             self.word2id = data['word2id']
             self.id2word = data['id2word']
+            self.intent2id=data['intent2id']
+            self.id2intent=data['id2intent']
             self.idCount = data.get('idCount', None)
             self.trainingSamples = data['trainingSamples']
             self.validationSamples = data['validationSamples']
@@ -489,11 +522,11 @@ class TextData:
 
         # 1st step: Iterate over all words and add filters the sentences
         # according to the sentence lengths
-        for inputWords, targetWords, triples in tqdm(self.trainingSamples, desc='Filter sentences:', leave=False):
+        for inputWords, targetWords, triples, intents in tqdm(self.trainingSamples, desc='Filter sentences:', leave=False):
             # inputWords = mergeSentences(inputWords, fromEnd=True)
             # targetWords = mergeSentences(targetWords, fromEnd=False)
 
-            newSamples.append([inputWords, targetWords, triples])
+            newSamples.append([inputWords, targetWords, triples,intents])
         words = []
 
         # WARNING: DO NOT FILTER THE UNKNOWN TOKEN !!! Only word which has count==0 ?
@@ -541,14 +574,14 @@ class TextData:
 
         # self.trainingSamples.clear()
 
-        for inputWords, targetWords, triples in tqdm(newSamples, desc='Replace ids:', leave=False):
+        for inputWords, targetWords, triples, intent in tqdm(newSamples, desc='Replace ids:', leave=False):
             valid = True
             valid &= replace_words(inputWords)
             valid &= replace_words(targetWords)
             valid &= targetWords.count(self.unknownToken) == 0  # Filter target with out-of-vocabulary target words ?
 
             if valid:
-                self.trainingSamples.append([inputWords, targetWords, triples])  # TODO: Could replace list by tuple
+                self.trainingSamples.append([inputWords, targetWords, triples, intents])  # TODO: Could replace list by tuple
 
         self.idCount.clear()  # Not usefull anymore. Free data
 
@@ -585,6 +618,7 @@ class TextData:
         input_txt_conversation = []
         output_txt_conversation = []
         triples = self.extractText(conversation['kb'], kb=True)
+        targetIntent = self.extractText(conversation['intent'],intent=True)
         for i in tqdm_wrap(
             range(0, len(conversation['lines']) - 1, step),  # We ignore the last line (no answer for it)
             desc='Conversation',
@@ -594,9 +628,6 @@ class TextData:
                 if conversation['lines'][i]['turn'] == 'driver':
                     inputLine = conversation['lines'][i]
                     targetLine = conversation['lines'][i+1]
-                    targetIntent= conversation['intent']
-                    print(targetIntent)
-
                     input_conversation.extend(self.extractText(inputLine['utterance']))
                     output_conversation.extend(self.extractText(targetLine['utterance']))
 
@@ -610,7 +641,6 @@ class TextData:
                     targeState="Unknown"
                     inputLine = conversation['lines'][i]
                     targetLine = conversation['lines'][i+1]
-                    targetIntent = conversation['intent']
                     if "slots" in targetLine:
                         targeState = targetLine["slots"]
 
@@ -635,37 +665,45 @@ class TextData:
                 if not valid and not test:  # Filter wrong samples (if one of the list is empty)
                     if truncate and ( len(input_conversation[:]) >= 40 or len(output_conversation[:]) >= 40) :
                     # truncate if too long
-                        self.trainingSamples.append([input_conversation[len(input_conversation) - 40:], output_conversation[:40], triples])
-                        self.txtTrainingSamples.append([input_txt_conversation[:], output_txt_conversation])
+                        self.trainingSamples.append([input_conversation[len(input_conversation) - 40:], output_conversation[:40], triples,targetIntent])
+                        self.txtTrainingSamples.append([np.array2string(np.array(input_txt_conversation[:]).flatten()).strip("]").strip("["), output_txt_conversation,targetIntent])
                     else:
-                        self.trainingSamples.append([input_conversation[:], output_conversation[:], triples])
-                        self.txtTrainingSamples.append([input_txt_conversation[:], output_txt_conversation])
+                        self.trainingSamples.append([input_conversation[:], output_conversation[:], triples,targetIntent])
+                        self.txtTrainingSamples.append([self.sequence2str(input_conversation[:]), self.sequence2str(output_conversation[:]),self.id2intent[targetIntent]])
                 elif valid:
                     if truncate and (len(input_conversation[:]) >= 40 or len(output_conversation[:]) >= 40):
-                        self.validationSamples.append([input_conversation[len(input_conversation) - 40:], output_conversation[:40], triples])
+                        self.validationSamples.append([input_conversation[len(input_conversation) - 40:], output_conversation[:40], triples,targetIntent])
                     else:
-                        self.validationSamples.append([input_conversation[:], output_conversation[:], triples])
-                    self.txtValidationSamples.append([input_txt_conversation[:], output_txt_conversation])
+                        self.validationSamples.append([input_conversation[:], output_conversation[:], triples,targetIntent])
+                    self.txtValidationSamples.append([input_txt_conversation[:], output_txt_conversation,targetIntent])
                 elif test:
-                    self.testSamples.append([input_conversation[:], output_conversation[:], triples])
+                    self.testSamples.append([input_conversation[:], output_conversation[:], triples, targetIntent])
 
-    def extractText(self, line, triples=[], kb = False):
+    def extractText(self, line, triples=[], kb = False, intent=False):
         """Extract the words from a sample lines
         Args:
             line (str): a line containing the text to extract
         Return:
             list<list<int>>: the list of sentences of word ids of the sentence
         """
+        if intent:
+            if line not in self.intent2id.keys():
+                self.intent2id[line] = len(self.intent2id)
+                self.id2intent[len(self.intent2id)-1] = line
+            return self.intent2id[line]
+
         if kb:
             triples = []
             for triple in line:
                 entities=[]
                 for entity in triple:
+                    entity = ' '.join(re.split('(\d+)', entity)).strip()
                     entities.append(self.getWordId(entity.lower()))
                 triples.append(entities)
             return triples
         else:
             line = line.lower()
+            line = ' '.join(re.split('(\d+)(?=[a-z]|\-)', line)).strip()
             count = 0
             entities ={}
 
@@ -675,28 +713,33 @@ class TextData:
                         if kki in re.findall(r"[\w']+|[^\s\w']", line):
                             if kki.strip() == ki[2].lower().split(",")[0]:
                                 count = count + 1
-                                if "raining" in line:
-                                    print(line)
-                                    line = re.sub(kki.strip(), "_entity_"+str(count)+"_", line)
-                                    print(line)
+                                line = re.sub(kki.strip(), "_entity_"+str(count)+"_", line)
+                                line = re.sub("_entity_[0-9]_[a-z|']{1,}", "_entity_" + str(count) + "_", line)
                                 entities["_entity_"+str(count)+"_"]=kki.strip()
                             if kki.strip() == ki[2].lower().split(",")[1]:
                                 count = count + 1
                                 line = re.sub(kki.strip(), "_entity_" + str(count) + "_", line)
+                                line = re.sub("_entity_[0-9]_[a-z|']{1,}", "_entity_" + str(count) + "_", line)
                                 entities["_entity_"+str(count)+"_"] = kki.strip()
                             if kki.strip() == ki[2].lower().split(",")[2]:
                                 count = count + 1
                                 line = re.sub(kki.strip(), "_entity_" + str(count) + "_", line)
+                                line = re.sub("_entity_[0-9]_[a-z|']{1,}", "_entity_" + str(count) + "_", line)
                                 entities["_entity_"+str(count)+"_"] = kki.strip()
-                else:
-                    if ki[2].lower() in line:
-                        count = count + 1
-                        line = re.sub(ki[2].strip(), "_entity_" + str(count) + "_", line)
-                        entities["_entity_"+str(count)+"_"] = ki[2].strip()
+
+                if ki[2].lower() in line:
+                    count = count + 1
+                    line = re.sub(ki[2].lower().strip(), "_entity_" + str(count) + "_", line)
+                    line = re.sub("_entity_[0-9]_[a-z|']{1,}", "_entity_" + str(count) + "_", line)
+                    entities["_entity_"+str(count)+"_"] = ki[2].lower().strip()
+
                 if ki[0].lower() in line:
                     count = count + 1
-                    line = re.sub(ki[0].strip(), "_entity_" + str(count) + "_", line)
-                    entities["_entity_"+str(count)+"_"] = ki[0].strip()
+                    line = re.sub(ki[0].lower().strip(), "_entity_" + str(count) + "_", line)
+                    line = re.sub("_entity_[0-9]_[a-z|']{1,}", "_entity_" + str(count) + "_", line)
+                    entities["_entity_"+str(count)+"_"] = ki[0].lower().strip()
+
+
 
 
             sentences = []  # List[List[str]]
@@ -706,7 +749,8 @@ class TextData:
             # We add sentence by sentence until we reach the maximum length
             for i in range(len(sentencesToken)):
                 if sentencesToken[i] in entities:
-                    sentences.append(self.getWordId(entities[sentencesToken[i]]))
+                    token = '_'.join(re.split(" ", entities[sentencesToken[i]]))
+                    sentences.append(self.getWordId(token))
                 else:
                     token = sentencesToken[i].strip(",").strip(".").strip(":").strip("?").\
                     strip("!").strip(";").strip(' \n\t').strip().strip(" ").strip('\t')
@@ -913,13 +957,13 @@ class TextData:
         pass
 
     def getInputMaxLength(self):
-        return max(map(len, (s for [s, _,_] in self.trainingSamples)))
+        return max(map(len, (s for [s, _,_,_] in self.trainingSamples)))
 
     def getTargetMaxLength(self):
-        return max(map(len, (s for [_, s,_] in self.trainingSamples)))+2
+        return max(map(len, (s for [_, s,_,_] in self.trainingSamples)))+2
 
     def getMaxTriples(self):
-        return max(map(len, (s for [_, _,s] in self.trainingSamples)))
+        return max(map(len, (s for [_, _,s,_] in self.trainingSamples)))
 
 def tqdm_wrap(iterable, *args, **kwargs):
     """Forward an iterable eventually wrapped around a tqdm decorator

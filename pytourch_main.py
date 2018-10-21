@@ -33,7 +33,7 @@ import numpy as np
 import torch
 from torch.nn import functional
 from torch.autograd import Variable
-
+from util.measures import moses_multi_bleu
 USE_CUDA = False
 
 
@@ -140,7 +140,7 @@ def train_kb(args, input_batches, target_batches, kb_batch, encoder, decoder, en
             all_decoder_outputs[t] = decoder_output
 
             decoder_input = target_batches[t]
-
+    print(all_decoder_outputs.shape)
     loss = masked_cross_entropy(
             all_decoder_outputs.transpose(0, 1).contiguous(),  # seq x batch -> batch x seq
             target_batches.transpose(0, 1).contiguous(),  # seq x batch -> batch x seq
@@ -196,7 +196,7 @@ def entity_similarity_loss(data, word, predicted):
 
 
 def train(args, input_batches, target_batches, encoder, decoder, encoder_optimizer,
-          decoder_optimizer, criterion,batch_size, input_lengths, target_lengths, clip = 50.0,kb=[]):
+          decoder_optimizer, criterion,batch_size, input_lengths, target_lengths, clip = 50.0,kb=[],intent_batch=None):
 
     # Zero gradients of both optimizers
     encoder_optimizer.zero_grad()
@@ -233,9 +233,15 @@ def train(args, input_batches, target_batches, encoder, decoder, encoder_optimiz
         # Run through decoder one time step at a time
         for t in range(max_target_length):
 
-            decoder_output, decoder_context, decoder_hidden, decoder_attn = decoder(
-                decoder_input, decoder_context, decoder_hidden, encoder_outputs
-            )
+            if args.intent and t == 0:
+                decoder_output, decoder_context, decoder_hidden, decoder_attn, intent_score = decoder(
+                    decoder_input, decoder_context, decoder_hidden, encoder_outputs, intent_batch=True
+                )
+            else:
+                decoder_output, decoder_context, decoder_hidden, decoder_attn,_ = decoder(
+                    decoder_input, decoder_context, decoder_hidden, encoder_outputs
+                )
+
             all_decoder_outputs[t] = decoder_output
             topv, topi = decoder_output.data.topk(1)
             topi=topi.squeeze(1)
@@ -254,8 +260,12 @@ def train(args, input_batches, target_batches, encoder, decoder, encoder_optimiz
         target_lengths
         )
 
-    loss.add(entity_additional_loss*entity_loss_cof)
+    if args.intent:
+        loss_function_2 = nn.CrossEntropyLoss()
+        intent_loss = loss_function_2(intent_score, torch.LongTensor(intent_batch))
+        loss = loss.add(2*intent_loss.item())
 
+    loss = loss.add(entity_additional_loss*entity_loss_cof)
     loss.backward()
 
     # Clip gradient norm
@@ -282,7 +292,7 @@ def time_since(since, percent):
     return '%s (- %s)' % (as_minutes(s), as_minutes(rs))
 
 
-def evaluate_sample(vocab,encoder, decoder, input_seqs, input_length=None):
+def evaluate_sample(vocab,encoder, decoder, input_seqs, input_length=None, output_length = None):
 
     input_batches = Variable(torch.LongTensor(input_seqs)).transpose(0, 1)
     if input_length is None:
@@ -309,15 +319,26 @@ def evaluate_sample(vocab,encoder, decoder, input_seqs, input_length=None):
         decoder_input = decoder_input.cuda()
         decoder_context = decoder_context.cuda()
 
+    if output_length is None:
+        max_output_length = max_length +2
+    else:
+        max_output_length = max(output_length)
+
     # Store output words and attention states
     decoded_words = []
-    decoder_attentions = torch.zeros(max_length + 1, max_length + 1)
+    decoder_attentions = torch.zeros(max_output_length + 1, max_output_length + 1)
 
     # Run through decoder
-    for di in range(max_length):
-        decoder_output, decoder_context, decoder_hidden, decoder_attention = decoder(
-            decoder_input,decoder_context, decoder_hidden, encoder_outputs
-        )
+    for di in range(max_output_length):
+        if args.intent and di == 0:
+            decoder_output, decoder_context, decoder_hidden, decoder_attention,intent_scores = decoder(
+            decoder_input,decoder_context, decoder_hidden, encoder_outputs, intent_batch=True
+            )
+        else:
+            decoder_output, decoder_context, decoder_hidden, decoder_attention, _ = decoder(
+                decoder_input, decoder_context, decoder_hidden, encoder_outputs
+            )
+
         decoder_attentions[di, :decoder_attention.size(2)] += decoder_attention.squeeze(0).squeeze(0).cpu().data
 
 
@@ -327,7 +348,7 @@ def evaluate_sample(vocab,encoder, decoder, input_seqs, input_length=None):
         ni = topi[0][0].item()
 
         if ni == vocab.word2id['<eos>']:
-            decoded_words.append('<EOS>')
+            decoded_words.append('<eos>')
             break
         else:
             decoded_words.append(vocab.id2word[ni])
@@ -335,7 +356,9 @@ def evaluate_sample(vocab,encoder, decoder, input_seqs, input_length=None):
         # Next input is chosen word
         decoder_input = Variable(torch.LongTensor([ni]))
         if USE_CUDA: decoder_input = decoder_input.cuda()
-
+    if args.intent:
+        v,i=intent_scores.data.topk(1)
+        decoded_words.append("<"+vocab.id2intent[i[0][0].item()]+">")
     # Set back to training mode
     encoder.train(True)
     decoder.train(True)
@@ -343,7 +366,7 @@ def evaluate_sample(vocab,encoder, decoder, input_seqs, input_length=None):
     return decoded_words, decoder_attentions[:di + 1, :len(encoder_outputs)]
 
 
-def evaluate(vocab,encoder, decoder, input_seqs, input_length=None):
+def evaluate(vocab,encoder, decoder, input_seqs, target_seqs, input_length=None, output_length=None):
 
     input_batches = Variable(torch.LongTensor(input_seqs)).transpose(0, 1)
     batch_size = input_batches.shape[1]
@@ -369,7 +392,12 @@ def evaluate(vocab,encoder, decoder, input_seqs, input_length=None):
 
     decoder_context = encoder_outputs[-1]#Variable(torch.zeros(batch_size, decoder.hidden_size))
     decoder_hidden = encoder_hidden  # Use last (forward) hidden state from encoder
-    all_decoder_predictions = Variable(torch.zeros(max_length, batch_size))
+    if output_length is None:
+        decoder_maxlength=max_length +2
+    else:
+        decoder_maxlength = max(output_length)
+
+    all_decoder_predictions = Variable(torch.zeros(decoder_maxlength, batch_size))
     #all_decoder_outputs = Variable(torch.zeros(max_target_length, batch_size, decoder.output_size))
     if USE_CUDA:
         decoder_input = decoder_input.cuda()
@@ -381,52 +409,62 @@ def evaluate(vocab,encoder, decoder, input_seqs, input_length=None):
     decoded_words = []
 
     # Run through decoder
-    for di in range(max_length):
+    for di in range(decoder_maxlength):
 
-        decoder_output, decoder_context, decoder_hidden, decoder_attention = decoder(
-            decoder_input,decoder_context, decoder_hidden, encoder_outputs
-        )
+        if args.intent and di == 0:
+            decoder_output, decoder_context, decoder_hidden, decoder_attention,intent_scores = decoder(
+            decoder_input, decoder_context, decoder_hidden, encoder_outputs, intent_batch=True
+            )
+        else:
+            decoder_output, decoder_context, decoder_hidden, decoder_attention, _ = decoder(
+                decoder_input, decoder_context, decoder_hidden, encoder_outputs
+            )
 
         # Choose top word from output
         topv, topi = decoder_output.data.topk(1)
-        # for i,k in enumerate(topi):
-        #     print(i)
-        #     print(k.item())
-        #     all_decoder_outputs[i].append
-        # ni = topi[0][0].item()
-        #
-        # if ni == vocab.word2id['<eos>']:
-        #     decoded_words.append('<EOS>')
-        #     break
-        # else:
-        #     decoded_words.append(vocab.id2word[ni])
 
-        all_decoder_predictions[di]= topi.squeeze(1)
+        all_decoder_predictions[di] = topi.squeeze(1)
 
 
         # Next input is chosen word
         decoder_input = topi
         if USE_CUDA: decoder_input = decoder_input.cuda()
 
+        if args.intent:
+            v, i = intent_scores.data.topk(1)
+            intent_pred=i
+
+
     # Set back to training mode
     encoder.train(True)
     decoder.train(True)
 
-    return all_decoder_predictions
+    return all_decoder_predictions, intent_pred
 
 
-def evaluate_randomly(data, encoder, decoder):
+def evaluate_randomly(args,data, encoder, decoder):
     #input_sentence, kb, target_sentence = next(data.random_batch(1))
 
-    batch = data.getBatches(1, valid=True, transpose=False)[0]
+    if args.test:
+        batch=data.getTestingBatch(1)[0]
+    else:
+        batch = data.getBatches(1, valid=True, transpose=False)[0]
+
     input_sentence = batch.encoderSeqs
     target_sentence = batch.decoderSeqs
-    evaluate_and_show_attention(data,encoder, decoder, input_sentence, target_sentence, batch.encoderSeqsLen)
+    evaluate_and_show_attention(data,encoder, decoder, input_sentence, target_sentence, batch.encoderSeqsLen,batch.decoderSeqsLen)
 
 
-def evaluate_model(args, data, encoder, decoder):
+def evaluate_model(args, data, encoder, decoder, valid=False):
 
-    batches = data.getBatches(args.batch_size,test=True, transpose=False)
+    if args.test:
+        batches = data.getTestingBatch(args.batch_size)
+    elif valid:
+        batches = data.getBatches(args.batch_size, valid=True, transpose=False)
+    else:
+        batches = data.getBatches(args.batch_size, test=True, transpose=False)
+
+
     all_predicted = []
     target_batches = []
     individual_metric = []
@@ -435,8 +473,9 @@ def evaluate_model(args, data, encoder, decoder):
         input_seq = batch.encoderSeqs
         target_seq = batch.decoderSeqs
 
-        batch_prediction,batch_bleu = evaluate_and_calculate_blue(data, encoder, decoder, input_seq,
-                                                                  target_seq, batch.encoderSeqsLen)
+        batch_prediction, batch_bleu = evaluate_and_calculate_blue(data, encoder, decoder, input_seq,
+                                                                  target_seq,
+                                                                  batch.encoderSeqsLen, batch.decoderSeqsLen)
         all_predicted.append(batch_prediction)
         target_batches.append(target_seq)
         individual_metric.append(batch_bleu)
@@ -445,11 +484,16 @@ def evaluate_model(args, data, encoder, decoder):
 
     global_metric_score = nltk.translate.bleu_score.corpus_bleu(references, candidates)
 
-    return global_metric_score, individual_metric
+    candidates2, references2 = data.get_candidates(target_batches, all_predicted, True)
 
-def evaluate_and_calculate_blue(data, encoder, decoder, input_seq, target_seq, input_length):
+    moses_multi_bleu_score= moses_multi_bleu(references2, candidates2, True)
 
-    batch_predictions = evaluate(data, encoder, decoder, input_seq, input_length)
+    return global_metric_score, individual_metric, moses_multi_bleu_score
+
+
+def evaluate_and_calculate_blue(data, encoder, decoder, input_seq, target_seq, input_length, output_length):
+
+    batch_predictions,intents = evaluate(data, encoder, decoder, input_seq, target_seq, input_length, output_length)
     batch_predictions = batch_predictions.transpose(0, 1)
     batch_metric_score = 0
 
@@ -498,8 +542,8 @@ def show_attention(input_sentence, output_words, attentions):
     plt.close()
 
 
-def evaluate_and_show_attention(vocab, encoder, decoder, input_sentence, target_sentence, input_length):
-    output_words, attentions = evaluate_sample(vocab, encoder, decoder, input_sentence, input_length)
+def evaluate_and_show_attention(vocab, encoder, decoder, input_sentence, target_sentence, input_length, output_length):
+    output_words, attentions = evaluate_sample(vocab, encoder, decoder, input_sentence, input_length, output_length)
     print(output_words)
     output_sentence = ' '.join(output_words)
     input_sentence= vocab.sequence2str(input_sentence[0],clean=True)
@@ -520,45 +564,24 @@ def evaluate_and_show_attention(vocab, encoder, decoder, input_sentence, target_
 if not os.path.exists('./weights'):
     os.makedirs('./weights/')
 
+
 def main(args):
-    #os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"   # see issue #152
-    #os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
-
-
-    # # Dataset functions
-    # vocab = Vocabulary('data/vocabulary.json',
-    #                           padding=args.padding)
-    # kb_vocab = Vocabulary('data/vocabulary.json',
-    #                           padding=4)
-    #
-    # print('Loading datasets.')
-    #
-    #
-    # training = Data(args.training_data, vocab,kb_vocab)
-    # #validation = Data(args.validation_data, vocab, kb_vocab)
-    # training.load()
-    # #validation.load()
-    # training.transform()
-    # training.kb_out()
-    # #validation.transform()
-    # #validation.kb_out()
-    # training_generator = training.random_batch(args.batch_size)
 
     # get data
 
     train_file = 'data/kvret_train_public.json'
     valid_file = 'data/kvret_dev_public.json'
     test_file = 'data/kvret_test_public.json'
-    model_dir = "pytourch_trained_model"
+    textdata = TextData(train_file, valid_file, test_file)
 
-    textdata= TextData("data/kvret_train_public.json",'data/kvret_dev_public.json','data/kvret_test_public.json')
     args.data = textdata
+
     print('Datasets Loaded.')
     print('Compiling Model.')
 
     # Configure models
     attn_model = 'dot'
-    n_layers = 2
+    n_layers = 1
     dropout = 0.1
     hidden_size = 200
 
@@ -568,14 +591,16 @@ def main(args):
     n_epochs = args.epochs
     epoch = 0
     plot_every = 20
-    print_every = 20
-    evaluate_every = 1000
-
+    evaluate_every = 20
 
     # Initialize models
     if args.model=="KVSeq2Seq":
         encoder = EncoderRNN(textdata.getVocabularySize(), hidden_size, n_layers, dropout=dropout)
         decoder = KVAttnDecoderRNN(attn_model, hidden_size, textdata.getVocabularySize(), n_layers, dropout=dropout)
+    elif args.intent:
+        encoder = EncoderRNN(textdata.getVocabularySize(), hidden_size, n_layers, dropout=dropout)
+        decoder = LuongAttnDecoderRNN(attn_model, hidden_size, textdata.getVocabularySize(), n_layers, dropout=dropout
+                                      , use_cuda=USE_CUDA)
     else:
         encoder = EncoderRNN(textdata.getVocabularySize(), hidden_size, n_layers, dropout=dropout)
         decoder = LuongAttnDecoderRNN(attn_model, hidden_size, textdata.getVocabularySize(), n_layers, dropout=dropout
@@ -612,20 +637,29 @@ def main(args):
     eca = 0
     dca = 0
 
-    save_every =5
+    avg_best_metric = 0
+    save_every = 5
+
     print('Model Compiled.')
     print('Training. Ctrl+C to end early.')
     if args.val:
-        global_metric_score, individual_metric = evaluate_model(args, textdata, encoder, decoder)
+        global_metric_score, individual_metric, moses_multi_bleu_score = \
+            evaluate_model(args, textdata, encoder, decoder)
         print("Model Bleu using corpus bleu: ", global_metric_score)
         print("Model Bleu using sentence bleu: ", sum(individual_metric)/len(individual_metric))
+        print("Model Bleu using moses_multi_bleu_score :", moses_multi_bleu_score)
     else:
 
         while epoch < n_epochs:
             epoch += 1
-            steps_done = 0
-            batches = textdata.getBatches(args.batch_size, transpose=False)
-            steps_per_epoch = len(batches)
+            # steps_done = 0
+
+            if args.test:
+                batches = textdata.getTestingBatch(args.batch_size)
+            else:
+                batches = textdata.getBatches(args.batch_size, transpose=False)
+
+            # steps_per_epoch = len(batches)
             try:
                 epoch_loss = 0
                 epoch_ec = 0
@@ -641,6 +675,7 @@ def main(args):
                     # Turn padded arrays into (batch_size x max_len) tensors, transpose into (max_len x batch_size)
                     target_lengths = current_batch.decoderSeqsLen
                     input_lengths = current_batch.encoderSeqsLen
+                    intent_batch=current_batch.seqIntent
 
 
                     input_batch = Variable(torch.LongTensor(x)).transpose(0, 1)
@@ -665,7 +700,7 @@ def main(args):
                     # Run the train function
                     loss, ec, dc = train(args, input_batch, target_batch, encoder, decoder,
                                          encoder_optimizer, decoder_optimizer, criterion,
-                                         args.batch_size, input_lengths, target_lengths, kb=kb_batch
+                                         args.batch_size, input_lengths, target_lengths, kb=kb_batch,intent_batch=intent_batch
                                          )
 
                     epoch_loss += loss
@@ -679,41 +714,55 @@ def main(args):
                 eca += epoch_ec
                 dca += epoch_dc
 
-                print( epoch, epoch_loss, "step-epoch-loss")
+                print(epoch, epoch_loss, "step-epoch-loss")
 
                 if epoch == 1:
-                    evaluate_randomly(textdata, encoder, decoder)
+                    evaluate_randomly(args, textdata, encoder, decoder)
                     continue
 
-                if epoch % print_every == 0:
+                if epoch % evaluate_every == 0:
 
-                    print_loss_avg = print_loss_total / print_every
+                    print_loss_avg = print_loss_total / evaluate_every
                     print_loss_total = 0
                     print_summary = '%s (%d %d%%) %.4f' % (
                             time_since(start, epoch / n_epochs), epoch, epoch / n_epochs * 100, print_loss_avg)
                     print(print_summary)
-                    evaluate_randomly(textdata, encoder, decoder)
+
+                    global_metric_score, individual_metric, moses_multi_bleu_score = \
+                        evaluate_model(args, textdata, encoder, decoder, valid=True)
+
+                    print("Model Bleu using corpus bleu: ", global_metric_score)
+                    print("Model Bleu using sentence bleu: ", sum(individual_metric) / len(individual_metric))
+                    print("Model Bleu using moses_multi_bleu_score :", moses_multi_bleu_score)
+                    bleu = max(global_metric_score, sum(individual_metric) / len(individual_metric), moses_multi_bleu_score/100)
+
+                    if bleu > avg_best_metric:
+                        avg_best_metric = bleu
+                        cnt = 0
+                    else:
+                        cnt += 1
+
+                    if cnt == 5: break
 
                 if epoch % plot_every == 0:
 
                     plot_loss_avg = plot_loss_total / plot_every
                     plot_losses.append(plot_loss_avg)
                     plot_loss_total = 0
-
-                    # TODO: Running average helper
-                    ecs.append(eca / plot_every)
-                    dcs.append(dca / plot_every)
-                    ecs_win = 'encoder grad (%s)' % hostname
-                    dcs_win = 'decoder grad (%s)' % hostname
-                    print(ecs)
-                    print(dcs)
-                    # vis.line(np.array(ecs), win=ecs_win, opts={'title': ecs_win})
-                    # vis.line(np.array(dcs), win=dcs_win, opts={'title': dcs_win})
-                    eca = 0
-                    dca = 0
+                    #
+                    # # TODO: Running average helper
+                    # ecs.append(eca / plot_every)
+                    # dcs.append(dca / plot_every)
+                    # ecs_win = 'encoder grad (%s)' % hostname
+                    # dcs_win = 'decoder grad (%s)' % hostname
+                    # print(ecs)
+                    # print(dcs)
+                    # # vis.line(np.array(ecs), win=ecs_win, opts={'title': ecs_win})
+                    # # vis.line(np.array(dcs), win=dcs_win, opts={'title': dcs_win})
+                    # eca = 0
+                    # dca = 0
 
                 if epoch % save_every == 0:
-                    print(epoch, epoch_loss, "step-epoch-loss")
                     directory = os.path.join("trained_model", decoder.__class__.__name__,
                                                  '{}-{}_{}'.format(n_layers, epoch, hidden_size))
 
@@ -725,7 +774,8 @@ def main(args):
                             'de': decoder.state_dict(),
                             'en_opt': encoder_optimizer.state_dict(),
                             'de_opt': decoder_optimizer.state_dict(),
-                            'loss': print_loss_total
+                            'loss': print_loss_total,
+                            'plot_losses':plot_losses,
                         }, os.path.join(directory, '{}_{}.tar'.format(epoch, "model_glove_{}".format(args.glove))))
 
             except KeyboardInterrupt as e:
@@ -747,7 +797,8 @@ def main(args):
             'dec': decoder.state_dict(),
             'enc_opt': encoder_optimizer.state_dict(),
             'dec_opt': decoder_optimizer.state_dict(),
-            'loss': print_loss_total
+            'loss': print_loss_total,
+            'plot_losses': plot_losses,
         }, os.path.join(directory, '{}_{}.tar'.format(epoch, 'backup_bidir_model')))
 
 
@@ -804,9 +855,20 @@ if __name__ == '__main__':
                             help="""to use glove embeddings """,
                             required=False, default=False, type=bool)
 
+    named_args.add_argument('-intent', '--intent', metavar='|',
+                            help="""Joint learning based on intent """,
+                            required=False, default=False, type=bool)
+
+    named_args.add_argument('-test', '--test', metavar='|',
+                            help="""test the model on one batch and evaluate on the same """,
+                            required=False, default=False, type=bool)
+
     args = parser.parse_args()
     #args.model="KVSeq2Seq"
     #args.val=True
+    if args.cuda:
+        USE_CUDA = True
+
     try:
         torch.LongTensor([1,2]).cuda()
         USE_CUDA = True
@@ -814,8 +876,7 @@ if __name__ == '__main__':
         print("no cuda")
         USE_CUDA = False
 
-    if args.cuda:
-        USE_CUDA = True
+
     main(args)
 
 
