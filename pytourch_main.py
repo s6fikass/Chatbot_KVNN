@@ -718,9 +718,9 @@ def main(args):
 
                 print(epoch, epoch_loss, "step-epoch-loss")
 
-                if epoch == 1:
-                    evaluate_randomly(args, textdata, encoder, decoder)
-                    continue
+                # if epoch == 1:
+                #     evaluate_randomly(args, textdata, encoder, decoder)
+                #     continue
 
                 if epoch % evaluate_every == 0:
 
@@ -871,14 +871,12 @@ if __name__ == '__main__':
     if args.cuda:
         USE_CUDA = True
 
-    try:
-        torch.LongTensor([1,2]).cuda()
-        USE_CUDA = True
-    except:
-        print("no cuda")
-        USE_CUDA = False
-
-
+    # try:
+    #     torch.LongTensor([1,2]).cuda()
+    #     USE_CUDA = True
+    # except:
+    #     print("no cuda")
+    #     USE_CUDA = False
     main(args)
 
 

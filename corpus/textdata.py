@@ -64,7 +64,7 @@ class TextData:
         """
         return list(TextData.availableCorpus.keys())
 
-    def __init__(self,dataFile,validFile, testFile, useGlove = False):
+    def __init__(self,dataFile, validFile, testFile, useGlove = False):
         """Load all conversations
         Args:
             args: parameters of the model
