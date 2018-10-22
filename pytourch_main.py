@@ -213,6 +213,8 @@ def train(args, input_batches, target_batches, encoder, decoder, encoder_optimiz
     decoder_context = encoder_outputs[-1]
     decoder_hidden = encoder_hidden  # Use last hidden state from encoder to start decoder
 
+    intent_output = torch.LongTensor(intent_batch)
+
     max_target_length = target_batches.shape[0]
     all_decoder_outputs = Variable(torch.zeros(max_target_length, batch_size, decoder.output_size))
 
@@ -221,6 +223,7 @@ def train(args, input_batches, target_batches, encoder, decoder, encoder_optimiz
         decoder_input = decoder_input.cuda()
         decoder_context = decoder_context.cuda()
         all_decoder_outputs = all_decoder_outputs.cuda()
+        intent_output = intent_output.cuda()
 
     # Choose whether to use teacher forcing
     use_teacher_forcing = random.random() < teacher_forcing_ratio
@@ -262,7 +265,7 @@ def train(args, input_batches, target_batches, encoder, decoder, encoder_optimiz
 
     if args.intent:
         loss_function_2 = nn.CrossEntropyLoss()
-        intent_loss = loss_function_2(intent_score, torch.LongTensor(intent_batch))
+        intent_loss = loss_function_2(intent_score, intent_output)
         loss = loss.add(2*intent_loss.item())
 
     loss = loss.add(entity_additional_loss*entity_loss_cof)
@@ -675,8 +678,7 @@ def main(args):
                     # Turn padded arrays into (batch_size x max_len) tensors, transpose into (max_len x batch_size)
                     target_lengths = current_batch.decoderSeqsLen
                     input_lengths = current_batch.encoderSeqsLen
-                    intent_batch=current_batch.seqIntent
-
+                    intent_batch = current_batch.seqIntent
 
                     input_batch = Variable(torch.LongTensor(x)).transpose(0, 1)
                     target_batch = Variable(torch.LongTensor(y)).transpose(0, 1)
