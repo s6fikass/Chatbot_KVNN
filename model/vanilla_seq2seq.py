@@ -9,7 +9,7 @@ import torch.nn.functional as F
 from sklearn.metrics import f1_score
 from torch import optim
 from torch.autograd import Variable
-from utils import masked_cross_entropy
+from pytourch_main import masked_cross_entropy
 
 class Seq2SeqmitAttn(nn.Module):
     """
