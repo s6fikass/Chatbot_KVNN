@@ -52,14 +52,12 @@ while epoch < n_epochs:
 
             xx = current_batch.encoderMaskSeqs
             yy = current_batch.decoderMaskSeqs
-            print (len(xx))
 
             input_batch = Variable(torch.LongTensor(x)).transpose(0, 1)
-            print(input_batch.size())
+
 
             target_batch = Variable(torch.LongTensor(y)).transpose(0, 1)
             input_batch_mask = Variable(torch.FloatTensor(xx)).transpose(0, 1)
-            print(input_batch_mask)
             target_batch_mask = Variable(torch.FloatTensor(yy)).transpose(0, 1)
             Vanilla_model.train_batch(input_batch,target_batch,input_batch_mask,target_batch_mask)
         print("epoch-loss",Vanilla_model.loss/len(batches))

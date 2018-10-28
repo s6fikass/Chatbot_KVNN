@@ -15,19 +15,19 @@
 # +
 # translate.bleu_score.corpus_bleu([reference,reference], hypothesis)
 # # print BLEUscore
-import re
-print(' '.join(re.split('(\d+)(?=[a-z]|\-)', "the nearest parking garage is dish parking at 550 alester ave.,kjh 2pm")).strip())
-s='the nearest _entity_1_ is dish parking at 550 alester ave. would you like directions there?'
-k='550 alester ave'
-#
-import numpy as np
-[0,0,0,0,0]  + [self.padToken] * (self.maxLengthDeco - len(batch.targetSeqs[i]))
-print(list(np.ones(5)))
-print(np.ones(5))
-
-# from corpus.textdata import TextData
+# import re
+# print(' '.join(re.split('(\d+)(?=[a-z]|\-)', "the nearest parking garage is dish parking at 550 alester ave.,kjh 2pm")).strip())
+# s='the nearest _entity_1_ is dish parking at 550 alester ave. would you like directions there?'
+# k='550 alester ave'
 # #
-# textdata = TextData("data/kvret_train_public.json","data/kvret_dev_public.json","data/kvret_test_public.json")
+# import numpy as np
+# [0,0,0,0,0]  + [self.padToken] * (self.maxLengthDeco - len(batch.targetSeqs[i]))
+# print(list(np.ones(5)))
+# print(np.ones(5))
+
+from corpus.textdata import TextData
+#
+textdata = TextData("data/kvret_train_public.json","data/kvret_dev_public.json","data/kvret_test_public.json")
 
 # print (textdata.sequence2str(textdata.trainingSamples[0][0]))
 # print (textdata.sequence2str(textdata.trainingSamples[0][1]))

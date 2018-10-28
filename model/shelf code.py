@@ -217,3 +217,37 @@ def train_kb(args, input_batches, target_batches, kb_batch, encoder, decoder, en
     encoder_optimizer.step()
     decoder_optimizer.step()
     return loss.item(), ec, dc
+
+
+
+ # Initialize models
+    if args.intent:
+        encoder = EncoderRNN(textdata.getVocabularySize(), hidden_size, n_layers, dropout=dropout)
+        decoder = LuongAttnDecoderRNN(attn_model, hidden_size, textdata.getVocabularySize(), n_layers, dropout=dropout
+                                      , use_cuda=args.cuda)
+    else:
+        encoder = EncoderRNN(textdata.getVocabularySize(), hidden_size, n_layers, dropout=dropout)
+        decoder = LuongAttnDecoderRNN(attn_model, hidden_size, textdata.getVocabularySize(), n_layers, dropout=dropout
+                                      , use_cuda=args.cuda)
+
+
+ if args.loadFilename:
+        checkpoint = torch.load(args.loadFilename)
+        encoder.load_state_dict(checkpoint['enc'])
+        decoder.load_state_dict(checkpoint['dec'])
+
+    # Initialize optimizers and criterion
+    encoder_optimizer = optim.Adam(encoder.parameters(), lr=learning_rate)
+    decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate * decoder_learning_ratio)
+    criterion = nn.CrossEntropyLoss()
+
+    if args.loadFilename:
+        encoder_optimizer.load_state_dict(checkpoint['enc_opt'])
+        decoder_optimizer.load_state_dict(checkpoint['dec_opt'])
+
+    # Move models to GPU
+    if args.cuda:
+        encoder=encoder.cuda()
+        decoder=decoder.cuda()
+
+

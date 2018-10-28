@@ -8,7 +8,7 @@ import argparse
 import numpy as np
 
 from corpus.textdata import TextData
-from model.seq2seq_model import EncoderRNN, LuongAttnDecoderRNN  # KVEncoderRNN, KVAttnDecoderRNN,
+from model.seq2seq_model import EncoderRNN, LuongAttnDecoderRNN, Seq2SeqmitAttn  # KVEncoderRNN, KVAttnDecoderRNN,
 
 import torch
 import torch.nn as nn
@@ -55,12 +55,10 @@ def main(args):
     # Configure models
     attn_model = 'dot'
     n_layers = 1
-    dropout = 0.1
+    dropout = 0.0
     hidden_size = 200
 
     # Configure training/optimization
-    learning_rate = 0.0001
-    decoder_learning_ratio = 5.0
     n_epochs = args.epochs
     epoch = 0
     plot_every = 20
@@ -74,28 +72,15 @@ def main(args):
         decoder = LuongAttnDecoderRNN(attn_model, hidden_size, textdata.getVocabularySize(), n_layers, dropout=dropout
                                       , use_cuda=args.cuda)
     else:
-        encoder = EncoderRNN(textdata.getVocabularySize(), hidden_size, n_layers, dropout=dropout)
-        decoder = LuongAttnDecoderRNN(attn_model, hidden_size, textdata.getVocabularySize(), n_layers, dropout=dropout
-                                      , use_cuda=args.cuda)
+        model = Seq2SeqmitAttn(hidden_size, textdata.getTargetMaxLength(), textdata.getVocabularySize(),
+                                       args.batch_size, hidden_size, textdata.word2id['<go>'], textdata.word2id['<eos>'],
+                                       None, gpu=False, lr=0.0001, train_emb=False,
+                                       n_layers=1, clip=2.0, pretrained_emb=None, dropout=0.1, emb_drop=0.2,
+                                       teacher_forcing_ratio=0.0)
 
     if args.loadFilename:
         checkpoint = torch.load(args.loadFilename)
-        encoder.load_state_dict(checkpoint['enc'])
-        decoder.load_state_dict(checkpoint['dec'])
-
-    # Initialize optimizers and criterion
-    encoder_optimizer = optim.Adam(encoder.parameters(), lr=learning_rate)
-    decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate * decoder_learning_ratio)
-    criterion = nn.CrossEntropyLoss()
-
-    if args.loadFilename:
-        encoder_optimizer.load_state_dict(checkpoint['enc_opt'])
-        decoder_optimizer.load_state_dict(checkpoint['dec_opt'])
-
-    # Move models to GPU
-    if args.cuda:
-        encoder=encoder.cuda()
-        decoder=decoder.cuda()
+        model.load_state_dict(torch.load(args.loadFilename))
 
     # Keep track of time elapsed and running averages
     start = time.time()
@@ -109,10 +94,9 @@ def main(args):
     eca = 0
     dca = 0
 
-
-
     print('Model Compiled.')
     print('Training. Ctrl+C to end early.')
+
     if args.val:
         global_metric_score, individual_metric, moses_multi_bleu_score = \
             evaluate_model(args, textdata, encoder, decoder)
@@ -120,7 +104,7 @@ def main(args):
         print("Model Bleu using sentence bleu: ", sum(individual_metric)/len(individual_metric))
         print("Model Bleu using moses_multi_bleu_score :", moses_multi_bleu_score)
     else:
-
+        total_loss = 0
         while epoch < n_epochs:
             epoch += 1
             # steps_done = 0
@@ -132,65 +116,70 @@ def main(args):
 
             # steps_per_epoch = len(batches)
             try:
-                epoch_loss = 0
+
                 epoch_ec = 0
                 epoch_dc = 0
 
                 for current_batch in tqdm(batches, desc='Processing batches'):
 
-                    x = current_batch.encoderSeqs
-                    y = current_batch.targetSeqs
                     kb_batch=current_batch.kb_inputs
 
                     # Turn padded arrays into (batch_size x max_len) tensors, transpose into (max_len x batch_size)
                     target_lengths = current_batch.decoderSeqsLen
                     input_lengths = current_batch.encoderSeqsLen
-                    intent_batch = current_batch.seqIntent
 
-                    input_batch = Variable(torch.LongTensor(x)).transpose(0, 1)
-                    target_batch = Variable(torch.LongTensor(y)).transpose(0, 1)
+                    input_batch = Variable(torch.LongTensor(current_batch.encoderSeqs)).transpose(0, 1)
+                    target_batch = Variable(torch.LongTensor(current_batch.targetSeqs)).transpose(0, 1)
+                    input_batch_mask = Variable(torch.FloatTensor(current_batch.encoderMaskSeqs)).transpose(0, 1)
+                    target_batch_mask = Variable(torch.FloatTensor(current_batch.decoderMaskSeqs)).transpose(0, 1)
 
-                    if args.cuda:
-                        input_batch = input_batch.cuda()
-                        target_batch = target_batch.cuda()
+                    # Train Model
+                    if args.intent:
+                        intent_batch = current_batch.seqIntent
 
-                    # Run the train function
-                    loss, ec, dc = train(args, input_batch, target_batch, encoder, decoder,
-                                         encoder_optimizer, decoder_optimizer, criterion,
-                                         args.batch_size, input_lengths, target_lengths, kb=kb_batch,intent_batch=intent_batch
-                                         )
+                    else:
+                        model.train_batch(input_batch, target_batch, input_batch_mask, target_batch_mask)
 
-                    epoch_loss += loss
-                    epoch_ec += ec
-                    epoch_dc += dc
+
+                    # # Run the train function
+                    # loss, ec, dc = train(args, input_batch, target_batch, encoder, decoder,
+                    #                      encoder_optimizer, decoder_optimizer, criterion,
+                    #                      args.batch_size, input_lengths, target_lengths, kb=kb_batch,intent_batch=intent_batch
+                    #                      )
+
+                    # epoch_loss += loss
+                    # epoch_ec += ec
+                    # epoch_dc += dc
 
                 # Keep track of loss
-                print_loss_total += epoch_loss
-                plot_loss_total += epoch_loss
-                eca += epoch_ec
-                dca += epoch_dc
+                print_loss_total += model.loss
+                plot_loss_total += model.loss
+                # eca += epoch_ec
+                # dca += epoch_dc
 
-                print(epoch, epoch_loss, "step-epoch-loss")
+                epoch_loss = model.loss-total_loss
+                total_loss = model.loss
+                print(epoch, epoch_loss, "epoch-loss")
 
-                if epoch == 1:
-                    evaluate_randomly(args, textdata, encoder, decoder)
-                    continue
-
+                # if epoch == 1:
+                #     evaluate_randomly(args, textdata, encoder, decoder)
+                #     continue
+                #
                 if epoch % evaluate_every == 0:
-
                     print_loss_avg = print_loss_total / evaluate_every
-                    print_loss_total = 0
+                #     print_loss_total = 0
                     print_summary = '%s (%d %d%%) %.4f' % (
                             time_since(start, epoch / n_epochs), epoch, epoch / n_epochs * 100, print_loss_avg)
                     print(print_summary)
 
                     global_metric_score, individual_metric, moses_multi_bleu_score = \
-                        evaluate_model(args, textdata, encoder, decoder, valid=True)
+                        model.evaluate_model(textdata, valid=True)
 
                     print("Model Bleu using corpus bleu: ", global_metric_score)
                     print("Model Bleu using sentence bleu: ", sum(individual_metric) / len(individual_metric))
                     print("Model Bleu using moses_multi_bleu_score :", moses_multi_bleu_score)
-                    bleu = max(global_metric_score, sum(individual_metric) / len(individual_metric), moses_multi_bleu_score/100)
+                    bleu = max(global_metric_score, sum(individual_metric) / len(individual_metric),
+                               moses_multi_bleu_score/100)
 
                     if bleu > avg_best_metric:
                         avg_best_metric = bleu
@@ -200,41 +189,41 @@ def main(args):
 
                     if cnt == 5: break
 
-                if epoch % plot_every == 0:
-
-                    plot_loss_avg = plot_loss_total / plot_every
-                    plot_losses.append(plot_loss_avg)
-                    plot_loss_total = 0
-                    #
-                    # # TODO: Running average helper
-                    ecs.append(eca / plot_every)
-                    dcs.append(dca / plot_every)
-                    # ecs_win = 'encoder grad (%s)' % hostname
-                    # dcs_win = 'decoder grad (%s)' % hostname
-                    # print(ecs)
-                    # print(dcs)
-                    # # vis.line(np.array(ecs), win=ecs_win, opts={'title': ecs_win})
-                    # # vis.line(np.array(dcs), win=dcs_win, opts={'title': dcs_win})
-                    eca = 0
-                    dca = 0
-
-                if epoch % save_every == 0:
-                    directory = os.path.join("trained_model", decoder.__class__.__name__,
-                                                 '{}-{}_{}'.format(n_layers, epoch, hidden_size))
-
-                    if not os.path.exists(directory):
-                        os.makedirs(directory)
-                    torch.save({
-                            'epoch': epoch,
-                            'en': encoder.state_dict(),
-                            'de': decoder.state_dict(),
-                            'en_opt': encoder_optimizer.state_dict(),
-                            'de_opt': decoder_optimizer.state_dict(),
-                            'loss': print_loss_total,
-                            'plot_losses':plot_losses,
-                            'ecs':ecs,
-                            'dcs':dca,
-                        }, os.path.join(directory, '{}_{}.tar'.format(epoch, "model_glove_{}".format(args.glove))))
+                # if epoch % plot_every == 0:
+                #
+                #     plot_loss_avg = plot_loss_total / plot_every
+                #     plot_losses.append(plot_loss_avg)
+                #     plot_loss_total = 0
+                #     #
+                #     # # TODO: Running average helper
+                #     ecs.append(eca / plot_every)
+                #     dcs.append(dca / plot_every)
+                #     # ecs_win = 'encoder grad (%s)' % hostname
+                #     # dcs_win = 'decoder grad (%s)' % hostname
+                #     # print(ecs)
+                #     # print(dcs)
+                #     # # vis.line(np.array(ecs), win=ecs_win, opts={'title': ecs_win})
+                #     # # vis.line(np.array(dcs), win=dcs_win, opts={'title': dcs_win})
+                #     eca = 0
+                #     dca = 0
+                #
+                # if epoch % save_every == 0:
+                #     directory = os.path.join("trained_model", decoder.__class__.__name__,
+                #                                  '{}-{}_{}'.format(n_layers, epoch, hidden_size))
+                #
+                #     if not os.path.exists(directory):
+                #         os.makedirs(directory)
+                #     torch.save({
+                #             'epoch': epoch,
+                #             'en': encoder.state_dict(),
+                #             'de': decoder.state_dict(),
+                #             'en_opt': encoder_optimizer.state_dict(),
+                #             'de_opt': decoder_optimizer.state_dict(),
+                #             'loss': print_loss_total,
+                #             'plot_losses':plot_losses,
+                #             'ecs':ecs,
+                #             'dcs':dca,
+                #         }, os.path.join(directory, '{}_{}.tar'.format(epoch, "model_glove_{}".format(args.glove))))
 
             except KeyboardInterrupt as e:
                 print('Model training stopped early.')

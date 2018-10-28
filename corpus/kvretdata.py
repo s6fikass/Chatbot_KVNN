@@ -63,7 +63,7 @@ class KvretData:
         lines = {}
         conversationId = 0
         lineID = 1
-
+        print(fileName)
         with open(fileName, 'r') as f:  # TODO: Solve Iso encoding pb !
             datastore = json.load(f)
             for dialogue in datastore:

@@ -250,8 +250,8 @@ class TextData:
 
             if len(batch.encoderSeqs[i]) <= self.maxLengthEnco:
                 batch.encoderSeqs[i]= batch.encoderSeqs[i][self.maxLengthEnco:]
-            if len(batch.decoderSeqs[i]) <= self.maxLengthDeco +2:
-                batch.decoderSeqs[i]=batch.decoderSeqs[i][:self.maxLengthDeco +2]
+            if len(batch.targetSeqs[i]) <= self.maxLengthDeco:
+                batch.decoderSeqs[i]=batch.decoderSeqs[i][:self.maxLengthDeco]
 
             # TODO: Should use tf batch function to automatically add padding and batch samples
             # Add padding & define weight
@@ -956,10 +956,16 @@ class TextData:
         pass
 
     def getInputMaxLength(self):
-        return max(map(len, (s for [s, _,_,_] in self.trainingSamples)))
+        maxT=max(map(len, (s for [s, _,_,_] in self.trainingSamples)))
+        maxV=max(map(len, (s for [s, _, _, _] in self.validationSamples)))
+        maxTs=max(map(len, (s for [s, _,_,_] in self.testSamples)))
+        return max(maxT,maxTs,maxV)
 
     def getTargetMaxLength(self):
-        return max(map(len, (s for [_, s,_,_] in self.trainingSamples)))+2
+        maxT = max(map(len, (s for [_, s,_,_] in self.trainingSamples)))
+        maxV = max(map(len, (s for [_, s,_,_] in self.validationSamples)))
+        maxTs = max(map(len, (s for [_, s,_,_] in self.testSamples)))
+        return max(maxT, maxTs, maxV)+1
 
     def getMaxTriples(self):
         return max(map(len, (s for [_, _,s,_] in self.trainingSamples)))
