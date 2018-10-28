@@ -855,7 +855,7 @@ class TextData:
         except:
             print(sequence)
         if tensor:
-            sequence=sequence.numpy()
+            sequence=sequence.cpu().numpy()
 
         if not clean:
             return ' '.join([self.id2word[idx] for idx in sequence])
