@@ -541,9 +541,11 @@ class Seq2SeqmitAttn(nn.Module):
 
         return decoded_words, loss_Vocab
 
-    def evaluate_model(self, data, valid=False):
+    def evaluate_model(self, data, valid=False, test=False):
 
-        if valid:
+        if test:
+            batches = data.getTestingBatch(self.b_size)
+        elif valid:
             batches = data.getBatches(self.b_size, valid=True, transpose=False)
         else:
             batches = data.getBatches(self.b_size, test=True, transpose=False)

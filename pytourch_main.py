@@ -173,7 +173,7 @@ def main(args):
                     print(print_summary)
 
                     global_metric_score, individual_metric, moses_multi_bleu_score = \
-                        model.evaluate_model(textdata, valid=True)
+                        model.evaluate_model(textdata, test=True)
 
                     print("Model Bleu using corpus bleu: ", global_metric_score)
                     print("Model Bleu using sentence bleu: ", sum(individual_metric) / len(individual_metric))
