@@ -160,7 +160,7 @@ class Attention(nn.Module):
     def forward(self, encoder_outputs, decoder_hidden, inp_mask):
         seq_len = encoder_outputs.size(1)  # get sequence lengths S
         H = decoder_hidden.repeat(seq_len, 1, 1).transpose(0, 1)  # B X S X H
-        energy = F.tanh(self.W_h(torch.cat([H, encoder_outputs], 2)))  # B X S X H
+        energy = torch.tanh(self.W_h(torch.cat([H, encoder_outputs], 2)))  # B X S X H
         energy = energy.transpose(2, 1)
         v = self.v.repeat(encoder_outputs.data.shape[0], 1).unsqueeze(1)  # [B X 1 X H]
         energy = torch.bmm(v, energy).view(-1, seq_len)  # [B X T]
@@ -262,7 +262,7 @@ class LuongAttnDecoderRNN(nn.Module):
         #         print('[decoder] context', context.size())
 
         concat_input = torch.cat((rnn_output, context), 1)
-        concat_output = F.tanh(self.concat(concat_input))
+        concat_output = torch.tanh(self.concat(concat_input))
 
         # Finally predict next token (Luong eq. 6)
         #         output = F.log_softmax(self.out(concat_output))
@@ -321,7 +321,7 @@ class Decoder(nn.Module):
         rnn_output = rnn_output.squeeze(0) # S=1 x B x N -> B x N
         context = context.squeeze(1)       # B x S=1 x N -> B x N
         concat_input = torch.cat((rnn_output, context), 1)
-        concat_output = F.tanh(self.concat(concat_input))
+        concat_output = torch.tanh(self.concat(concat_input))
 
         # Finally predict next token (Luong eq. 6, without softmax)
         output = self.out(concat_output)
