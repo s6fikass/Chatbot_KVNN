@@ -62,7 +62,7 @@ def main(args):
     n_epochs = args.epochs
     epoch = 0
     plot_every = 20
-    evaluate_every = 10
+    evaluate_every = 100
     avg_best_metric = 0
     save_every = 5
 
@@ -74,7 +74,7 @@ def main(args):
     else:
         model = Seq2SeqmitAttn(hidden_size, textdata.getTargetMaxLength(), textdata.getVocabularySize(),
                                        args.batch_size, hidden_size, textdata.word2id['<go>'], textdata.word2id['<eos>'],
-                                       None, gpu=args.cuda, lr=0.0001, train_emb=False,
+                                       None, gpu=args.cuda, lr=0.001, train_emb=False,
                                        n_layers=1, clip=2.0, pretrained_emb=None, dropout=0.0, emb_drop=0.0,
                                        teacher_forcing_ratio=0.0)
 

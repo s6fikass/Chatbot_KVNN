@@ -81,11 +81,11 @@ class EncoderRNN(nn.Module):
         hidden = self.init_weights(inp_emb.size(1))
 
         if input_lengths is not None:
-            embedded = nn.utils.rnn.pack_padded_sequence(embedded, input_lengths, batch_first=False)
+            embedded = nn.utils.rnn.pack_padded_sequence(embedded, input_lengths)
 
         outputs, hidden = self.rnn(embedded, hidden)  # outputs = S X B X n_layers*H, hidden = 2 * [1 X B X H]
         if input_lengths is not None:
-            outputs, _ = nn.utils.rnn.pad_packed_sequence(outputs, batch_first=False)
+            outputs, _ = nn.utils.rnn.pad_packed_sequence(outputs)
         return outputs, hidden
 
 
@@ -164,6 +164,7 @@ class Attention(nn.Module):
         energy = energy.transpose(2, 1)
         v = self.v.repeat(encoder_outputs.data.shape[0], 1).unsqueeze(1)  # [B X 1 X H]
         energy = torch.bmm(v, energy).view(-1, seq_len)  # [B X T]
+
         a = F.softmax(energy,dim=0) * inp_mask.transpose(0, 1)  # B X T
         normalization_factor = a.sum(1, keepdim=True)
         a = a / (normalization_factor + self.epsilon)  # adding a small offset to avoid nan values
@@ -382,7 +383,7 @@ class Seq2SeqmitAttn(nn.Module):
         self.loss = 0
         self.print_every = 1
 
-    def train_batch(self, input_batch, out_batch, input_mask, target_mask):
+    def train_batch(self, input_batch, out_batch, input_mask, target_mask,input_length=None, output_length=None):
 
         self.encoder.train(True)
         self.decoder.train(True)
@@ -404,7 +405,7 @@ class Seq2SeqmitAttn(nn.Module):
         loss_Vocab, loss_Ptr, loss_Gate = 0, 0, 0
         # Run words through encoder
         input_len = torch.sum(input_mask, dim=0)
-        encoder_outputs, encoder_hidden = self.encoder(inp_emb)
+        encoder_outputs, encoder_hidden = self.encoder(inp_emb,input_length)
 
         # target_len = torch.sum(target_mask, dim=0)
         target_len = out_batch.size(0)
@@ -566,8 +567,8 @@ class Seq2SeqmitAttn(nn.Module):
 
             batch_metric_score = 0
             for i, sen in enumerate(batch_predictions):
-                predicted = data.sequence2str(sen.cpu().numpy(), clean=True)
-                reference = data.sequence2str(batch.targetSeqs[i], clean=True)
+                predicted = data.sequence2str(sen.cpu().numpy())
+                reference = data.sequence2str(batch.targetSeqs[i])
                 print("Predicted : ", predicted)
                 print("Target : ", reference)
                 batch_metric_score += nltk.translate.bleu_score.sentence_bleu([reference], predicted)
