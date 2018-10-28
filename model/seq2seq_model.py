@@ -164,7 +164,7 @@ class Attention(nn.Module):
         energy = energy.transpose(2, 1)
         v = self.v.repeat(encoder_outputs.data.shape[0], 1).unsqueeze(1)  # [B X 1 X H]
         energy = torch.bmm(v, energy).view(-1, seq_len)  # [B X T]
-        a = F.softmax(energy) * inp_mask.transpose(0, 1)  # B X T
+        a = F.softmax(energy,dim=0) * inp_mask.transpose(0, 1)  # B X T
         normalization_factor = a.sum(1, keepdim=True)
         a = a / (normalization_factor + self.epsilon)  # adding a small offset to avoid nan values
 
