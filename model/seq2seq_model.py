@@ -46,7 +46,7 @@ class EncoderRNN(nn.Module):
     Encoder RNN module
     """
 
-    def __init__(self, input_size, emb_size, hidden_size, b_size, vocab_size, n_layers=1, dropout=0.1, emb_drop=0.2,
+    def __init__(self, input_size, emb_size, hidden_size, b_size, vocab_size, n_layers=1, dropout=0.0, emb_drop=0.0,
                  gpu=False):
         super(EncoderRNN, self).__init__()
         self.input_size = input_size
@@ -389,13 +389,13 @@ class Seq2SeqmitAttn(nn.Module):
         self.embedding.train(True)
 
         if self.use_cuda:
-            print("CCCCuda")
+
             input_batch.cuda()
             out_batch.cuda()
             input_mask.cuda()
             target_mask.cuda()
 
-        print(type(input_batch))
+        print(input_batch.type())
 
         inp_emb = self.embedding(input_batch)
         # print (len(out_batch))
