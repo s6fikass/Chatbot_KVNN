@@ -566,6 +566,8 @@ class Seq2SeqmitAttn(nn.Module):
             for i, sen in enumerate(batch_predictions):
                 predicted = data.sequence2str(sen.cpu().numpy(), clean=True)
                 reference = data.sequence2str(batch.targetSeqs[i], clean=True)
+                print("Predicted : ", predicted)
+                print("Target : ", reference)
                 batch_metric_score += nltk.translate.bleu_score.sentence_bleu([reference], predicted)
 
             batch_metric_score = batch_metric_score / self.b_size

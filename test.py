@@ -28,6 +28,8 @@
 from corpus.textdata import TextData
 #
 textdata = TextData("data/kvret_train_public.json","data/kvret_dev_public.json","data/kvret_test_public.json")
+batches = textdata.getBatches(1, valid=True, transpose=False)
+print(textdata.sequence2str(batches[0].decoderSeqs[0]))
 
 # print (textdata.sequence2str(textdata.trainingSamples[0][0]))
 # print (textdata.sequence2str(textdata.trainingSamples[0][1]))

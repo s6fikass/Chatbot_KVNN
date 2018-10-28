@@ -110,11 +110,17 @@ class TextData:
         self.id2intent = {}
         self.loadCorpus()
 
+
+
+        self.maxLengthEnco = self.getInputMaxLength()
+        self.maxLengthDeco = self.getTargetMaxLength()
+        self.maxTriples = self.getMaxTriples()
         # Plot some stats:
         self._printStats()
 
         # if self.playDataset:
         #     self.playDataset()
+
 
     def _printStats(self):
         print('Loaded Kvret : {} words, {} QA'.format(len(self.word2id), len(self.trainingSamples)))
@@ -223,9 +229,7 @@ class TextData:
         """
         batch = Batch()
         batchSize = len(samples)
-        self.maxLengthEnco = self.getInputMaxLength()
-        self.maxLengthDeco = self.getTargetMaxLength()
-        self.maxTriples = self.getMaxTriples()
+
 
         # for i in range(batchSize):
         #     print(samples[i][0])
@@ -863,6 +867,7 @@ class TextData:
         sentence = []
         for wordId in sequence:
             if wordId == self.eosToken:  # End of generated sentence
+                sentence.append(self.id2word[wordId])
                 break
             elif wordId != self.padToken and wordId != self.goToken:
                 sentence.append(self.id2word[wordId])
