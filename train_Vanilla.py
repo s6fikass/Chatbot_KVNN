@@ -30,7 +30,7 @@ plot_every = 20
 evaluate_every = 20
 batch_size=10
 
-Vanilla_model = Seq2SeqmitAttn(hidden_size, textdata.getTargetMaxLength(), textdata.getVocabularySize(), batch_size, hidden_size, textdata.word2id['<go>'], textdata.word2id['<eos>'], None, gpu=False, lr=0.01, train_emb=False,
+Vanilla_model = Seq2SeqmitAttn(hidden_size, textdata.getTargetMaxLength(), textdata.getVocabularySize(), batch_size, hidden_size, textdata.word2id['<go>'], textdata.word2id['<eos>'], None, gpu=True, lr=0.01, train_emb=False,
                  n_layers=1, clip=2.0, pretrained_emb=None, dropout=0.1, emb_drop=0.2, teacher_forcing_ratio=0.0)
 
 while epoch < n_epochs:
