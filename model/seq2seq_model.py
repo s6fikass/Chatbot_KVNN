@@ -389,10 +389,13 @@ class Seq2SeqmitAttn(nn.Module):
         self.embedding.train(True)
 
         if self.use_cuda:
+            print("CCCCuda")
             input_batch.cuda()
             out_batch.cuda()
             input_mask.cuda()
             target_mask.cuda()
+
+        print(type(input_batch))
 
         inp_emb = self.embedding(input_batch)
         # print (len(out_batch))
