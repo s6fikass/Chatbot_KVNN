@@ -45,6 +45,8 @@ class Batch:
         self.kb_inputs_mask = []
         self.targetSeqs = []
         self.weights = []
+        self.encoderMaskSeqs = []
+        self.decoderMaskSeqs = []
 
 
 class TextData:
@@ -64,7 +66,7 @@ class TextData:
         """
         return list(TextData.availableCorpus.keys())
 
-    def __init__(self,dataFile,validFile, testFile, useGlove = False):
+    def __init__(self,dataFile, validFile, testFile, useGlove = False):
         """Load all conversations
         Args:
             args: parameters of the model
@@ -237,33 +239,30 @@ class TextData:
             sample = samples[i]
             batch.encoderSeqs.append(sample[0])  # Reverse inputs (and not outputs), little trick as defined on the original seq2seq paper
             batch.decoderSeqs.append([self.goToken] + sample[1] + [self.eosToken])  # Add the <go> and <eos> tokens
+            batch.encoderMaskSeqs.append(list(np.ones(len(sample[0]))))
+            batch.decoderMaskSeqs.append(list(np.ones(len(sample[1]))))
             batch.targetSeqs.append(batch.decoderSeqs[-1][1:])  # Same as decoder, but shifted to the left (ignore the <go>)
             batch.kb_inputs.append(sample[2])
             batch.seqIntent.append(sample[3])
 
-
             batch.encoderSeqsLen.append(len(sample[0]))
             batch.decoderSeqsLen.append(len(sample[1])+2)
-            if len(batch.decoderSeqs[i]) > self.maxLengthDeco +2:
-                print(len(batch.decoderSeqs[i]))
-                print(self.maxLengthDeco)
-                print(self.sequence2str(batch.decoderSeqs[i]))
 
             if len(batch.encoderSeqs[i]) <= self.maxLengthEnco:
                 batch.encoderSeqs[i]= batch.encoderSeqs[i][self.maxLengthEnco:]
-            if len(batch.decoderSeqs[i]) <= self.maxLengthDeco +2:
-                batch.decoderSeqs[i]=batch.decoderSeqs[i][:self.maxLengthDeco +2]
+            if len(batch.targetSeqs[i]) <= self.maxLengthDeco:
+                batch.decoderSeqs[i]=batch.decoderSeqs[i][:self.maxLengthDeco]
 
             # TODO: Should use tf batch function to automatically add padding and batch samples
             # Add padding & define weight
             batch.encoderSeqs[i] = [self.padToken] * (self.maxLengthEnco  - len(batch.encoderSeqs[i])) +batch.encoderSeqs[i]   # Left padding for the input
+            batch.encoderMaskSeqs[i] = [0] * (self.maxLengthEnco  - len(batch.encoderMaskSeqs[i])) + batch.encoderMaskSeqs[i]
             batch.weights.append([1.0] * len(batch.targetSeqs[i]) + [0.0] * (self.maxLengthDeco - len(batch.targetSeqs[i])))
             batch.decoderSeqs[i] = batch.decoderSeqs[i] + [self.padToken] * (self.maxLengthDeco - len(batch.decoderSeqs[i]))
+            batch.decoderMaskSeqs[i] =batch.decoderMaskSeqs[i] + [0] * (self.maxLengthDeco - len(batch.decoderMaskSeqs[i]))
+
             batch.targetSeqs[i]  = batch.targetSeqs[i]  + [self.padToken] * (self.maxLengthDeco - len(batch.targetSeqs[i]))
-
             batch.kb_inputs[i] = batch.kb_inputs[i] # + [0, 0, 0]* (self.maxTriples - len(batch.kb_inputs[i]))
-
-
 
         # print ("Before Reshaping %d" % len(batch.encoderSeqs))
         # print ("Before Reshaping %d" % len(batch.decoderSeqs))
@@ -957,10 +956,16 @@ class TextData:
         pass
 
     def getInputMaxLength(self):
-        return max(map(len, (s for [s, _,_,_] in self.trainingSamples)))
+        maxT=max(map(len, (s for [s, _,_,_] in self.trainingSamples)))
+        maxV=max(map(len, (s for [s, _, _, _] in self.validationSamples)))
+        maxTs=max(map(len, (s for [s, _,_,_] in self.testSamples)))
+        return max(maxT,maxTs,maxV)
 
     def getTargetMaxLength(self):
-        return max(map(len, (s for [_, s,_,_] in self.trainingSamples)))+2
+        maxT = max(map(len, (s for [_, s,_,_] in self.trainingSamples)))
+        maxV = max(map(len, (s for [_, s,_,_] in self.validationSamples)))
+        maxTs = max(map(len, (s for [_, s,_,_] in self.testSamples)))
+        return max(maxT, maxTs, maxV)+1
 
     def getMaxTriples(self):
         return max(map(len, (s for [_, _,s,_] in self.trainingSamples)))
