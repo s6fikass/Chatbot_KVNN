@@ -62,7 +62,7 @@ def main(args):
     n_epochs = args.epochs
     epoch = 0
     plot_every = 20
-    evaluate_every = 20
+    evaluate_every = 10
     avg_best_metric = 0
     save_every = 5
 
