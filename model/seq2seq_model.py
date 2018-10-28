@@ -394,8 +394,6 @@ class Seq2SeqmitAttn(nn.Module):
             input_mask=input_mask.cuda()
             target_mask=target_mask.cuda()
 
-        print(input_batch.type())
-
         inp_emb = self.embedding(input_batch)
         # print (len(out_batch))
         b_size = input_batch.size(1)
@@ -479,10 +477,10 @@ class Seq2SeqmitAttn(nn.Module):
         self.embedding.train(False)
 
         if self.use_cuda:
-            input_batch.cuda()
-            out_batch.cuda()
-            input_mask.cuda()
-            target_mask.cuda()
+            input_batch = input_batch.cuda()
+            out_batch = out_batch.cuda()
+            input_mask = input_mask.cuda()
+            target_mask = target_mask.cuda()
 
         inp_emb = self.embedding(input_batch)
         # output decoder words
