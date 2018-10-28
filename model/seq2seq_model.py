@@ -276,7 +276,7 @@ class Decoder(nn.Module):
     """
     Decoder RNN
     """
-    def __init__(self, hidden_size, emb_dim, vocab_size, n_layers=1, dropout=0.1):
+    def __init__(self, hidden_size, emb_dim, vocab_size, n_layers=1, dropout=0.0):
         super(Decoder, self).__init__()
         self.hidden_size = hidden_size
         self.emb_dim = emb_dim
@@ -564,7 +564,7 @@ class Seq2SeqmitAttn(nn.Module):
 
             batch_metric_score = 0
             for i, sen in enumerate(batch_predictions):
-                predicted = data.sequence2str(sen.numpy(), clean=True)
+                predicted = data.sequence2str(sen.cpu().numpy(), clean=True)
                 reference = data.sequence2str(batch.targetSeqs[i], clean=True)
                 batch_metric_score += nltk.translate.bleu_score.sentence_bleu([reference], predicted)
 
