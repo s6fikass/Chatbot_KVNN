@@ -22,24 +22,26 @@ import numpy as np
 
 
 hostname = socket.gethostname()
-# class EncoderRNN(nn.Module):
-#     def __init__(self, input_size, hidden_size, n_layers=1, dropout=0.1):
-#         super(EncoderRNN, self).__init__()
-#
-#         self.input_size = input_size
-#         self.hidden_size = hidden_size
-#         self.n_layers = n_layers
-#         self.dropout = dropout
-#
-#         self.embedding = nn.Embedding(input_size, hidden_size)
-#         self.lstm = nn.LSTM(hidden_size, hidden_size, n_layers, dropout=self.dropout)
-#
-#     def forward(self, input_seqs, input_lengths, hidden=None):
-#         embedded = self.embedding(input_seqs)
-#         packed = torch.nn.utils.rnn.pack_padded_sequence(embedded, input_lengths)
-#         output, hidden = self.lstm(packed, hidden)
-#         output, _ = torch.nn.utils.rnn.pad_packed_sequence(output)  # unpack (back to padded)
-#         return output, hidden
+
+
+class LuongEncoderRNN(nn.Module):
+    def __init__(self, input_size, hidden_size, n_layers=1, dropout=0.1):
+        super(LuongEncoderRNN, self).__init__()
+
+        self.input_size = input_size
+        self.hidden_size = hidden_size
+        self.n_layers = n_layers
+        self.dropout = dropout
+
+        self.embedding = nn.Embedding(input_size, hidden_size)
+        self.lstm = nn.LSTM(hidden_size, hidden_size, n_layers, dropout=self.dropout)
+
+    def forward(self, input_seqs, input_lengths, hidden=None):
+        embedded = self.embedding(input_seqs)
+        packed = torch.nn.utils.rnn.pack_padded_sequence(embedded, input_lengths)
+        output, hidden = self.lstm(packed, hidden)
+        output, _ = torch.nn.utils.rnn.pad_packed_sequence(output)  # unpack (back to padded)
+        return output, hidden
 
 class EncoderRNN(nn.Module):
     """
@@ -593,3 +595,44 @@ class Seq2SeqmitAttn(nn.Module):
         print_loss_avg = self.loss / self.print_every
         self.print_every += 1
         return 'L:{:.2f}'.format(print_loss_avg)
+
+
+class Seq2SeqLuongAttn(nn.Module):
+    """
+        Sequence to sequence model with Luong Attention
+        """
+
+    def __init__(self,  attn_model, hidden_size, input_size, output_size, batch_size, n_layers=1, dropout=0.0,
+                 intent_size=3, lr=0.001, teacher_forcing_ratio=1, gpu=False):
+        super(Seq2SeqLuongAttn, self).__init__()
+
+        self.name = "LuongSeq2Seq"
+
+        self.input_size = input_size
+        self.output_size = output_size
+
+        self.hidden_size = hidden_size
+        self.lr = lr
+
+        self.decoder_learning_ratio = 5.0
+        self.n_layers = n_layers
+        self.dropout = dropout
+        self.b_size = batch_size
+        self.teacher_forcing_ratio = teacher_forcing_ratio
+
+        # self.sos_tok = sos_tok
+        # self.eos_tok = eos_tok
+        # self.itos = itos
+        # self.clip = clip
+        self.use_cuda = gpu
+
+        # Common embedding for both encoder and decoder
+        #self.embedding = nn.Embedding(self.output_size, self.emb_dim, padding_idx=0)
+
+        self.encoder = LuongEncoderRNN(self.input_size, hidden_size, self.n_layers, dropout=dropout)
+        self.decoder = LuongAttnDecoderRNN(attn_model, hidden_size, self.output_size, self.n_layers, dropout=dropout)
+
+        # Initialize optimizers and criterion
+        encoder_optimizer = optim.Adam(self.encoder.parameters(), lr=self.lr)
+        decoder_optimizer = optim.Adam(self.decoder.parameters(), lr=self.lr * decoder_learning_ratio)
+        criterion = nn.CrossEntropyLoss()

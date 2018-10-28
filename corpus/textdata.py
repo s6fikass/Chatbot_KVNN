@@ -962,15 +962,11 @@ class TextData:
 
     def getInputMaxLength(self):
         maxT=max(map(len, (s for [s, _,_,_] in self.trainingSamples)))
-        maxV=max(map(len, (s for [s, _, _, _] in self.validationSamples)))
-        maxTs=max(map(len, (s for [s, _,_,_] in self.testSamples)))
-        return max(maxT,maxTs,maxV)
+        return maxT
 
     def getTargetMaxLength(self):
         maxT = max(map(len, (s for [_, s,_,_] in self.trainingSamples)))
-        maxV = max(map(len, (s for [_, s,_,_] in self.validationSamples)))
-        maxTs = max(map(len, (s for [_, s,_,_] in self.testSamples)))
-        return max(maxT, maxTs, maxV)+2
+        return maxT+2
 
     def getMaxTriples(self):
         return max(map(len, (s for [_, _,s,_] in self.trainingSamples)))
