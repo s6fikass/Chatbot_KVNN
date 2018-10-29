@@ -54,12 +54,12 @@ while epoch < n_epochs:
             yy = current_batch.decoderMaskSeqs
 
             input_batch = Variable(torch.LongTensor(x)).transpose(0, 1)
-
-
             target_batch = Variable(torch.LongTensor(y)).transpose(0, 1)
             input_batch_mask = Variable(torch.FloatTensor(xx)).transpose(0, 1)
             target_batch_mask = Variable(torch.FloatTensor(yy)).transpose(0, 1)
-            Vanilla_model.train_batch(input_batch,target_batch,input_batch_mask,target_batch_mask)
+
+            Vanilla_model.train_batch(input_batch, target_batch, input_batch_mask, target_batch_mask)
+
         print("epoch-loss",Vanilla_model.loss/len(batches))
     except KeyboardInterrupt as e:
         print('Model training stopped early.')

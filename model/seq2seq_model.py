@@ -19,27 +19,29 @@ import nltk
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import numpy as np
-
+from train import masked_cross_entropy as length_cross_entropy
 
 hostname = socket.gethostname()
-# class EncoderRNN(nn.Module):
-#     def __init__(self, input_size, hidden_size, n_layers=1, dropout=0.1):
-#         super(EncoderRNN, self).__init__()
-#
-#         self.input_size = input_size
-#         self.hidden_size = hidden_size
-#         self.n_layers = n_layers
-#         self.dropout = dropout
-#
-#         self.embedding = nn.Embedding(input_size, hidden_size)
-#         self.lstm = nn.LSTM(hidden_size, hidden_size, n_layers, dropout=self.dropout)
-#
-#     def forward(self, input_seqs, input_lengths, hidden=None):
-#         embedded = self.embedding(input_seqs)
-#         packed = torch.nn.utils.rnn.pack_padded_sequence(embedded, input_lengths)
-#         output, hidden = self.lstm(packed, hidden)
-#         output, _ = torch.nn.utils.rnn.pad_packed_sequence(output)  # unpack (back to padded)
-#         return output, hidden
+
+
+class LuongEncoderRNN(nn.Module):
+    def __init__(self, input_size, hidden_size, n_layers=1, dropout=0.1):
+        super(LuongEncoderRNN, self).__init__()
+
+        self.input_size = input_size
+        self.hidden_size = hidden_size
+        self.n_layers = n_layers
+        self.dropout = dropout
+
+        self.embedding = nn.Embedding(input_size, hidden_size)
+        self.lstm = nn.LSTM(hidden_size, hidden_size, n_layers, dropout=self.dropout)
+
+    def forward(self, input_seqs, input_lengths, hidden=None):
+        embedded = self.embedding(input_seqs)
+        packed = torch.nn.utils.rnn.pack_padded_sequence(embedded, input_lengths)
+        output, hidden = self.lstm(packed, hidden)
+        output, _ = torch.nn.utils.rnn.pad_packed_sequence(output)  # unpack (back to padded)
+        return output, hidden
 
 class EncoderRNN(nn.Module):
     """
@@ -81,66 +83,66 @@ class EncoderRNN(nn.Module):
         hidden = self.init_weights(inp_emb.size(1))
 
         if input_lengths is not None:
-            embedded = nn.utils.rnn.pack_padded_sequence(embedded, input_lengths, batch_first=False)
+            embedded = nn.utils.rnn.pack_padded_sequence(embedded, input_lengths)
 
         outputs, hidden = self.rnn(embedded, hidden)  # outputs = S X B X n_layers*H, hidden = 2 * [1 X B X H]
         if input_lengths is not None:
-            outputs, _ = nn.utils.rnn.pad_packed_sequence(outputs, batch_first=False)
+            outputs, _ = nn.utils.rnn.pad_packed_sequence(outputs)
         return outputs, hidden
 
 
 #
-# class Attn(nn.Module):
-#     def __init__(self, method, hidden_size, use_cuda=None):
-#         super(Attn, self).__init__()
-#
-#         self.method = method
-#         self.hidden_size = hidden_size
-#         self.cuda = use_cuda
-#
-#         if self.method == 'general':
-#             self.attn = nn.Linear(self.hidden_size, hidden_size)
-#
-#         elif self.method == 'concat':
-#             self.attn = nn.Linear(self.hidden_size * 2, hidden_size)
-#             self.v = nn.Parameter(torch.FloatTensor(1, hidden_size))
-#
-#     def forward(self, hidden, encoder_outputs):
-#         max_len = encoder_outputs.size(0)
-#
-#         this_batch_size = encoder_outputs.size(1)
-#
-#         # Create variable to store attention energies
-#         attn_energies = Variable(torch.zeros(this_batch_size, max_len))  # B x S
-#
-#         if self.cuda:
-#             attn_energies = attn_energies.cuda()
-#
-#         # For each batch of encoder outputs
-#         for b in range(this_batch_size):
-#             # Calculate energy for each encoder output
-#             for i in range(max_len):
-#                 attn_energies[b, i] = self.score(hidden[:, b], encoder_outputs[i, b].unsqueeze(0))
-#
-#         # Normalize energies to weights in range 0 to 1, resize to 1 x B x S
-#         return F.softmax(attn_energies, dim=0).unsqueeze(1)
-#
-#     def score(self, hidden, encoder_output):
-#
-#         if self.method == 'dot':
-#
-#             energy = torch.dot(hidden.view(-1), encoder_output.view(-1))
-#             return energy
-#
-#         elif self.method == 'general':
-#             energy = self.attn(torch.cat((hidden, encoder_output), 1))
-#             energy = torch.dot(self.v.view(-1), energy.view(-1))
-#             return energy
-#
-#         elif self.method == 'concat':
-#             energy = self.attn(torch.cat((hidden, encoder_output), 1))
-#             energy = self.v.dot(energy)
-#             return energy
+class Attn(nn.Module):
+    def __init__(self, method, hidden_size, use_cuda=None):
+        super(Attn, self).__init__()
+
+        self.method = method
+        self.hidden_size = hidden_size
+        self.cuda = use_cuda
+
+        if self.method == 'general':
+            self.attn = nn.Linear(self.hidden_size, hidden_size)
+
+        elif self.method == 'concat':
+            self.attn = nn.Linear(self.hidden_size * 2, hidden_size)
+            self.v = nn.Parameter(torch.FloatTensor(1, hidden_size))
+
+    def forward(self, hidden, encoder_outputs):
+        max_len = encoder_outputs.size(0)
+
+        this_batch_size = encoder_outputs.size(1)
+
+        # Create variable to store attention energies
+        attn_energies = Variable(torch.zeros(this_batch_size, max_len))  # B x S
+
+        if self.cuda:
+            attn_energies = attn_energies.cuda()
+
+        # For each batch of encoder outputs
+        for b in range(this_batch_size):
+            # Calculate energy for each encoder output
+            for i in range(max_len):
+                attn_energies[b, i] = self.score(hidden[:, b], encoder_outputs[i, b].unsqueeze(0))
+
+        # Normalize energies to weights in range 0 to 1, resize to 1 x B x S
+        return F.softmax(attn_energies, dim=0).unsqueeze(1)
+
+    def score(self, hidden, encoder_output):
+
+        if self.method == 'dot':
+
+            energy = torch.dot(hidden.view(-1), encoder_output.view(-1))
+            return energy
+
+        elif self.method == 'general':
+            energy = self.attn(torch.cat((hidden, encoder_output), 1))
+            energy = torch.dot(self.v.view(-1), energy.view(-1))
+            return energy
+
+        elif self.method == 'concat':
+            energy = self.attn(torch.cat((hidden, encoder_output), 1))
+            energy = self.v.dot(energy)
+            return energy
 
 
 class Attention(nn.Module):
@@ -164,6 +166,7 @@ class Attention(nn.Module):
         energy = energy.transpose(2, 1)
         v = self.v.repeat(encoder_outputs.data.shape[0], 1).unsqueeze(1)  # [B X 1 X H]
         energy = torch.bmm(v, energy).view(-1, seq_len)  # [B X T]
+
         a = F.softmax(energy,dim=0) * inp_mask.transpose(0, 1)  # B X T
         normalization_factor = a.sum(1, keepdim=True)
         a = a / (normalization_factor + self.epsilon)  # adding a small offset to avoid nan values
@@ -382,7 +385,7 @@ class Seq2SeqmitAttn(nn.Module):
         self.loss = 0
         self.print_every = 1
 
-    def train_batch(self, input_batch, out_batch, input_mask, target_mask):
+    def train_batch(self, input_batch, out_batch, input_mask, target_mask,input_length=None, output_length=None):
 
         self.encoder.train(True)
         self.decoder.train(True)
@@ -404,7 +407,7 @@ class Seq2SeqmitAttn(nn.Module):
         loss_Vocab, loss_Ptr, loss_Gate = 0, 0, 0
         # Run words through encoder
         input_len = torch.sum(input_mask, dim=0)
-        encoder_outputs, encoder_hidden = self.encoder(inp_emb)
+        encoder_outputs, encoder_hidden = self.encoder(inp_emb,input_length)
 
         # target_len = torch.sum(target_mask, dim=0)
         target_len = out_batch.size(0)
@@ -541,9 +544,11 @@ class Seq2SeqmitAttn(nn.Module):
 
         return decoded_words, loss_Vocab
 
-    def evaluate_model(self, data, valid=False):
+    def evaluate_model(self, data, valid=False, test=False):
 
-        if valid:
+        if test:
+            batches = data.getTestingBatch(self.b_size)
+        elif valid:
             batches = data.getBatches(self.b_size, valid=True, transpose=False)
         else:
             batches = data.getBatches(self.b_size, test=True, transpose=False)
@@ -564,8 +569,10 @@ class Seq2SeqmitAttn(nn.Module):
 
             batch_metric_score = 0
             for i, sen in enumerate(batch_predictions):
-                predicted = data.sequence2str(sen.cpu().numpy(), clean=True)
-                reference = data.sequence2str(batch.targetSeqs[i], clean=True)
+                predicted = data.sequence2str(sen.cpu().numpy())
+                reference = data.sequence2str(batch.targetSeqs[i])
+                print("Predicted : ", predicted)
+                print("Target : ", reference)
                 batch_metric_score += nltk.translate.bleu_score.sentence_bleu([reference], predicted)
 
             batch_metric_score = batch_metric_score / self.b_size
@@ -588,3 +595,246 @@ class Seq2SeqmitAttn(nn.Module):
         print_loss_avg = self.loss / self.print_every
         self.print_every += 1
         return 'L:{:.2f}'.format(print_loss_avg)
+
+
+class Seq2SeqLuongAttn(nn.Module):
+    """
+        Sequence to sequence model with Luong Attention
+        """
+    def __init__(self,  attn_model, hidden_size, input_size, output_size, batch_size, sos_tok, n_layers=1, dropout=0.1,
+                 intent_size=3, lr=0.0001, decoder_learning_ratio = 5.0, clip=50.0, teacher_forcing_ratio=1, gpu=False):
+        super(Seq2SeqLuongAttn, self).__init__()
+
+        self.name = "LuongSeq2Seq"
+
+        self.input_size = input_size
+        self.output_size = output_size
+
+        self.hidden_size = hidden_size
+        self.lr = lr
+        self.clip = clip
+        self.decoder_learning_ratio = 5.0
+        self.n_layers = n_layers
+        self.dropout = dropout
+        self.batch_size = batch_size
+        self.teacher_forcing_ratio = teacher_forcing_ratio
+
+        self.sos_tok = sos_tok
+        # self.eos_tok = eos_tok
+        # self.itos = itos
+        # self.clip = clip
+        self.use_cuda = gpu
+
+        # Common embedding for both encoder and decoder
+        #self.embedding = nn.Embedding(self.output_size, self.emb_dim, padding_idx=0)
+
+        self.encoder = LuongEncoderRNN(self.input_size, hidden_size, self.n_layers, dropout=dropout)
+        self.decoder = LuongAttnDecoderRNN(attn_model, hidden_size, self.output_size, self.n_layers, dropout=dropout)
+
+        if self.use_cuda:
+            self.encoder = self.encoder.cuda()
+            self.decoder = self.decoder.cuda()
+
+        # Initialize optimizers and criterion
+        self.encoder_optimizer = optim.Adam(self.encoder.parameters(), lr=self.lr)
+        self.decoder_optimizer = optim.Adam(self.decoder.parameters(), lr=self.lr * decoder_learning_ratio)
+
+        self.plot_every = 20
+        self.evaluate_every = 20
+        self.loss=0
+
+    def train_batch(self, input_batch, out_batch, input_mask, target_mask, input_length=None, output_length=None):
+
+        self.encoder.train(True)
+        self.decoder.train(True)
+        #self.embedding.train(True)
+
+        if self.use_cuda:
+            input_batch=input_batch.cuda()
+            out_batch=out_batch.cuda()
+            input_mask=input_mask.cuda()
+            target_mask=target_mask.cuda()
+        #inp_emb = self.embedding(input_batch)
+        b_size = input_batch.size(1)
+
+        # Zero gradients of both optimizers
+        self.encoder_optimizer.zero_grad()
+        self.decoder_optimizer.zero_grad()
+
+
+        # Run words through encoder
+        #input_len = torch.sum(input_mask, dim=0)
+        encoder_outputs, encoder_hidden = self.encoder(input_batch, input_length)
+
+        # Prepare input and output variables
+
+        max_target_length = out_batch.shape[0]
+
+        decoder_input = Variable(torch.LongTensor([[self.sos_tok] * self.batch_size])).transpose(0, 1)
+        #     print('decoder_input', decoder_input.size())
+        decoder_context = encoder_outputs[-1]
+        decoder_hidden = encoder_hidden  # Use last hidden state from encoder to start decoder
+
+        all_decoder_outputs = Variable(torch.zeros(max_target_length, self.batch_size, self.output_size))
+
+        if not isinstance(max_target_length, int):
+            max_target_length = int(max_target_length.cpu().numpy()) if self.use_cuda else int(
+                max_target_length.numpy())
+
+        # Prepare input and output variables
+        if self.use_cuda:
+            decoder_input = decoder_input.cuda()
+            all_decoder_outputs = all_decoder_outputs.cuda()
+            # decoder_context = decoder_context.cuda()
+
+        # provide data to decoder
+        # if use_teacher_forcing:
+        if 1:
+            for t in range(max_target_length):
+                decoder_output, decoder_context, decoder_hidden, decoder_attn, _ = self.decoder(
+                    decoder_input, decoder_context, decoder_hidden, encoder_outputs
+                )
+                all_decoder_outputs[t] = decoder_output
+                decoder_input = out_batch[t]
+
+        # print (all_decoder_outputs_vocab.size(), out_batch.size())
+        # out_batch = out_batch.transpose(0, 1).contiguous
+        target_mask = target_mask.transpose(0, 1).contiguous()
+        # print (all_decoder_outputs_vocab.size(), out_batch.size(), target_mask.size())
+        # loss_Vocab = masked_cross_entropy(
+        #     all_decoder_outputs.transpose(0, 1).contiguous(),  # -> B x S X VOCAB
+        #     out_batch.transpose(0, 1).contiguous(),  # -> B x S
+        #     target_mask
+        # )
+        loss = length_cross_entropy(
+            all_decoder_outputs.transpose(0, 1).contiguous(),  # seq x batch -> batch x seq
+            out_batch.transpose(0, 1).contiguous(),  # seq x batch -> batch x seq
+            output_length
+        )
+        # loss = loss_Vocab
+        loss.backward()
+
+        # clip gradient
+        torch.nn.utils.clip_grad_norm_(self.encoder.parameters(), self.clip)
+        torch.nn.utils.clip_grad_norm_(self.decoder.parameters(), self.clip)
+        torch.nn.utils.clip_grad_norm_(self.parameters(), self.clip)
+
+        # Update parameters with optimizers
+        self.encoder_optimizer.step()
+        self.decoder_optimizer.step()
+        self.loss += loss.item()
+
+    def evaluate_batch(self, input_batch, out_batch, input_mask, target_mask, input_length=None, output_length=None):
+
+
+        if self.use_cuda:
+            input_batch = input_batch.cuda()
+
+        # Set to not-training mode to disable dropout
+        self.encoder.train(False)
+        self.decoder.train(False)
+
+        # Run through encoder
+        encoder_outputs, encoder_hidden = self.encoder(input_batch, input_length)
+
+        # Create starting vectors for decoder
+        decoder_input = Variable(torch.LongTensor([[self.sos_tok] * self.batch_size])).transpose(0, 1)  # SOS
+
+        decoder_context = encoder_outputs[-1]  # Variable(torch.zeros(batch_size, decoder.hidden_size))
+        decoder_hidden = encoder_hidden  # Use last (forward) hidden state from encoder
+
+        if output_length is None:
+            decoder_maxlength = max_length + 2
+        else:
+            decoder_maxlength = max(output_length)
+
+        all_decoder_predictions = Variable(torch.zeros(decoder_maxlength, self.batch_size))
+        # all_decoder_outputs = Variable(torch.zeros(max_target_length, batch_size, decoder.output_size))
+        if self.use_cuda:
+            decoder_input = decoder_input.cuda()
+            # decoder_context = decoder_context.cuda()
+            # decoder_hidden = decoder_hidden.cuda()
+            all_decoder_predictions = all_decoder_predictions.cuda()
+
+        # Store output words and attention states
+        decoded_words = []
+
+        # Run through decoder
+        for di in range(decoder_maxlength):
+
+            # if args.intent and di == 0:
+            #     decoder_output, decoder_context, decoder_hidden, decoder_attention, intent_scores = decoder(
+            #         decoder_input, decoder_context, decoder_hidden, encoder_outputs, intent_batch=True
+            #     )
+            # else:
+            decoder_output, decoder_context, decoder_hidden, decoder_attention, _ = self.decoder(
+                    decoder_input, decoder_context, decoder_hidden, encoder_outputs
+                )
+
+            # Choose top word from output
+            topv, topi = decoder_output.data.topk(1)
+
+            all_decoder_predictions[di] = topi.squeeze(1)
+
+            # Next input is chosen word
+            decoder_input = topi
+            if self.use_cuda: decoder_input = decoder_input.cuda()
+
+            # if args.intent:
+            #     v, i = intent_scores.data.topk(1)
+            #     intent_pred = i
+
+        # Set back to training mode
+        self.encoder.train(True)
+        self.decoder.train(True)
+
+        return all_decoder_predictions
+
+    def evaluate_model(self, data, valid=False, test=False):
+
+        if test:
+            batches = data.getTestingBatch(self.batch_size)
+        elif valid:
+            batches = data.getBatches(self.batch_size, valid=True, transpose=False)
+        else:
+            batches = data.getBatches(self.batch_size, test=True, transpose=False)
+
+        all_predicted = []
+        target_batches = []
+        individual_metric = []
+
+        for batch in batches:
+            input_batch = Variable(torch.LongTensor(batch.encoderSeqs)).transpose(0, 1)
+            target_batch = Variable(torch.LongTensor(batch.targetSeqs)).transpose(0, 1)
+            input_batch_mask = Variable(torch.FloatTensor(batch.encoderMaskSeqs)).transpose(0, 1)
+            target_batch_mask = Variable(torch.FloatTensor(batch.decoderMaskSeqs)).transpose(0, 1)
+
+            decoded_words = self.evaluate_batch(input_batch, target_batch, input_batch_mask, target_batch_mask,
+                                                batch.encoderSeqsLen, batch.decoderSeqsLen)
+
+            batch_predictions = decoded_words.transpose(0, 1)
+
+            batch_metric_score = 0
+            for i, sen in enumerate(batch_predictions):
+                predicted = data.sequence2str(sen.cpu().numpy())
+                reference = data.sequence2str(batch.targetSeqs[i])
+                print("Predicted : ", predicted)
+                print("Target : ", reference)
+                batch_metric_score += nltk.translate.bleu_score.sentence_bleu([reference], predicted)
+
+            batch_metric_score = batch_metric_score / self.batch_size
+
+            all_predicted.append(batch_predictions)
+            target_batches.append(batch.targetSeqs)
+            individual_metric.append(batch_metric_score)
+
+        candidates, references = data.get_candidates(target_batches, all_predicted)
+
+        global_metric_score = nltk.translate.bleu_score.corpus_bleu(references, candidates)
+
+        candidates2, references2 = data.get_candidates(target_batches, all_predicted, True)
+
+        moses_multi_bleu_score = moses_multi_bleu(references2, candidates2, True)
+
+        return global_metric_score, individual_metric, moses_multi_bleu_score
+

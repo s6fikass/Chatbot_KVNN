@@ -110,11 +110,17 @@ class TextData:
         self.id2intent = {}
         self.loadCorpus()
 
+
+
+        self.maxLengthEnco = self.getInputMaxLength()
+        self.maxLengthDeco = self.getTargetMaxLength()
+        self.maxTriples = self.getMaxTriples()
         # Plot some stats:
         self._printStats()
 
         # if self.playDataset:
         #     self.playDataset()
+
 
     def _printStats(self):
         print('Loaded Kvret : {} words, {} QA'.format(len(self.word2id), len(self.trainingSamples)))
@@ -223,9 +229,7 @@ class TextData:
         """
         batch = Batch()
         batchSize = len(samples)
-        self.maxLengthEnco = self.getInputMaxLength()
-        self.maxLengthDeco = self.getTargetMaxLength()
-        self.maxTriples = self.getMaxTriples()
+
 
         # for i in range(batchSize):
         #     print(samples[i][0])
@@ -248,9 +252,9 @@ class TextData:
             batch.encoderSeqsLen.append(len(sample[0]))
             batch.decoderSeqsLen.append(len(sample[1])+2)
 
-            if len(batch.encoderSeqs[i]) <= self.maxLengthEnco:
+            if len(batch.encoderSeqs[i]) > self.maxLengthEnco:
                 batch.encoderSeqs[i]= batch.encoderSeqs[i][self.maxLengthEnco:]
-            if len(batch.targetSeqs[i]) <= self.maxLengthDeco:
+            if len(batch.targetSeqs[i]) > self.maxLengthDeco:
                 batch.decoderSeqs[i]=batch.decoderSeqs[i][:self.maxLengthDeco]
 
             # TODO: Should use tf batch function to automatically add padding and batch samples
@@ -863,6 +867,7 @@ class TextData:
         sentence = []
         for wordId in sequence:
             if wordId == self.eosToken:  # End of generated sentence
+                sentence.append(self.id2word[wordId])
                 break
             elif wordId != self.padToken and wordId != self.goToken:
                 sentence.append(self.id2word[wordId])
@@ -957,15 +962,11 @@ class TextData:
 
     def getInputMaxLength(self):
         maxT=max(map(len, (s for [s, _,_,_] in self.trainingSamples)))
-        maxV=max(map(len, (s for [s, _, _, _] in self.validationSamples)))
-        maxTs=max(map(len, (s for [s, _,_,_] in self.testSamples)))
-        return max(maxT,maxTs,maxV)
+        return maxT
 
     def getTargetMaxLength(self):
         maxT = max(map(len, (s for [_, s,_,_] in self.trainingSamples)))
-        maxV = max(map(len, (s for [_, s,_,_] in self.validationSamples)))
-        maxTs = max(map(len, (s for [_, s,_,_] in self.testSamples)))
-        return max(maxT, maxTs, maxV)+1
+        return maxT+2
 
     def getMaxTriples(self):
         return max(map(len, (s for [_, _,s,_] in self.trainingSamples)))

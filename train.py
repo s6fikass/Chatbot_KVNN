@@ -126,7 +126,7 @@ def train(args, input_batches, target_batches, encoder, decoder, encoder_optimiz
     # Move new Variables to CUDA
     if args.cuda:
         decoder_input = decoder_input.cuda()
-        decoder_context = decoder_context.cuda()
+        # decoder_context = decoder_context.cuda()
         all_decoder_outputs = all_decoder_outputs.cuda()
         intent_output = intent_output.cuda()
 

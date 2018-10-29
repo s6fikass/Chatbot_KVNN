@@ -8,7 +8,7 @@ import argparse
 import numpy as np
 
 from corpus.textdata import TextData
-from model.seq2seq_model import EncoderRNN, LuongAttnDecoderRNN, Seq2SeqmitAttn  # KVEncoderRNN, KVAttnDecoderRNN,
+from model.seq2seq_model import EncoderRNN, LuongAttnDecoderRNN, Seq2SeqmitAttn, Seq2SeqLuongAttn  # KVEncoderRNN, KVAttnDecoderRNN,
 
 import torch
 import torch.nn as nn
@@ -68,13 +68,12 @@ def main(args):
 
     # Initialize models
     if args.intent:
-        encoder = EncoderRNN(textdata.getVocabularySize(), hidden_size, n_layers, dropout=dropout)
-        decoder = LuongAttnDecoderRNN(attn_model, hidden_size, textdata.getVocabularySize(), n_layers, dropout=dropout
-                                      , use_cuda=args.cuda)
+        model = Seq2SeqLuongAttn(attn_model,hidden_size,textdata.getVocabularySize(), textdata.getVocabularySize(),
+                                 args.batch_size, textdata.word2id['<go>'])
     else:
         model = Seq2SeqmitAttn(hidden_size, textdata.getTargetMaxLength(), textdata.getVocabularySize(),
                                        args.batch_size, hidden_size, textdata.word2id['<go>'], textdata.word2id['<eos>'],
-                                       None, gpu=args.cuda, lr=0.0001, train_emb=False,
+                                       None, gpu=args.cuda, lr=0.001, train_emb=False,
                                        n_layers=1, clip=2.0, pretrained_emb=None, dropout=0.0, emb_drop=0.0,
                                        teacher_forcing_ratio=0.0)
 
@@ -135,8 +134,8 @@ def main(args):
 
                     # Train Model
                     if args.intent:
-                        intent_batch = current_batch.seqIntent
-
+                        model.train_batch(input_batch, target_batch, input_batch_mask, target_batch_mask,
+                                          input_lengths,target_lengths)
                     else:
                         model.train_batch(input_batch, target_batch, input_batch_mask, target_batch_mask)
 
@@ -173,7 +172,7 @@ def main(args):
                     print(print_summary)
 
                     global_metric_score, individual_metric, moses_multi_bleu_score = \
-                        model.evaluate_model(textdata, valid=True)
+                        model.evaluate_model(textdata, test=True)
 
                     print("Model Bleu using corpus bleu: ", global_metric_score)
                     print("Model Bleu using sentence bleu: ", sum(individual_metric) / len(individual_metric))
