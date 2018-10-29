@@ -260,7 +260,7 @@ class LuongAttnDecoderRNN(nn.Module):
         # #         output = F.log_softmax(self.out(concat_output))
         # output = self.out(concat_output)
         s_t = hidden[0][-1].unsqueeze(0)
-
+        print(inp_mask.type())
         alpha, context = self.attention(encoder_outputs.transpose(0,1), s_t, inp_mask)
 
         # Attentional vector using the RNN hidden state and context vector
@@ -666,8 +666,6 @@ class Seq2SeqLuongAttn(nn.Module):
         # Run words through encoder
         #input_len = torch.sum(input_mask, dim=0)
         encoder_outputs, encoder_hidden = self.encoder(input_batch, input_length)
-        print(encoder_outputs.size())
-        print(input_mask.size())
         # Prepare input and output variables
 
         max_target_length = out_batch.shape[0]
