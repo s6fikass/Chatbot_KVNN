@@ -73,7 +73,7 @@ def masked_cross_entropy(logits, target, target_lengths,USE_CUDA=False):
     # losses: (batch, max_len)
     losses = losses_flat.view(*target.size())
     # mask: (batch, max_len)
-    mask = sequence_mask(sequence_length=length, max_len=target.size(1))
+    mask = sequence_mask(sequence_length=length, max_len=target.size(1),USE_CUDA=USE_CUDA)
 
     losses = losses * mask.float()
     loss = losses.sum() / length.float().sum()
