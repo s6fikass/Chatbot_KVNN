@@ -225,6 +225,7 @@ class LuongAttnDecoderRNN(nn.Module):
         # Calculate attention from current RNN state and all encoder outputs;
         # apply to encoder outputs to get weighted average
         attn_weights = self.attn(rnn_output, encoder_outputs)
+        print(attn_weights.type())
         #        print('[decoder] attn_weights', attn_weights.size())
         #         print('[decoder] encoder_outputs', encoder_outputs.size())
         intent_score = None
@@ -241,19 +242,7 @@ class LuongAttnDecoderRNN(nn.Module):
             concated = torch.cat((intent_hidden, intent_context.transpose(0, 1)), 2)  # 1,B,D
             intent_score = self.intent_out(concated.squeeze(0))  # B,D
 
-        if Kb_batch:
-            # new_hidden = Variable(torch.zeros(self.n_layers*1, batch_size, self.hidden_size))
-            # if self.use_cuda:
-            #     intent_hidden = new_hidden.cuda()
-            # else:
-            #     intent_hidden = new_hidden
-            kb_hidden = hidden[0].clone()
-            # print("intent_intent_hidden", intent_hidden.shape)
-            intent_attn_weights = self.intent_attn(kb_hidden, encoder_outputs)
-            intent_context = intent_attn_weights.bmm(encoder_outputs.transpose(0, 1))
-            concated = torch.cat((intent_hidden, intent_context.transpose(0, 1)), 2)  # 1,B,D
-            intent_score = self.intent_out(concated.squeeze(0))  # B,D
-
+        print(encoder_outputs.type())
         context = attn_weights.bmm(encoder_outputs.transpose(0, 1))  # B x S=1 x N
         #         print('[decoder] context', context.size())
 
