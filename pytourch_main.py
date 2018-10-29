@@ -8,7 +8,7 @@ import argparse
 import numpy as np
 
 from corpus.textdata import TextData
-from model.seq2seq_model import EncoderRNN, LuongAttnDecoderRNN, Seq2SeqmitAttn  # KVEncoderRNN, KVAttnDecoderRNN,
+from model.seq2seq_model import EncoderRNN, LuongAttnDecoderRNN, Seq2SeqmitAttn, Seq2SeqLuongAttn  # KVEncoderRNN, KVAttnDecoderRNN,
 
 import torch
 import torch.nn as nn
@@ -62,15 +62,14 @@ def main(args):
     n_epochs = args.epochs
     epoch = 0
     plot_every = 20
-    evaluate_every = 100
+    evaluate_every = 10
     avg_best_metric = 0
     save_every = 5
 
     # Initialize models
     if args.intent:
-        encoder = EncoderRNN(textdata.getVocabularySize(), hidden_size, n_layers, dropout=dropout)
-        decoder = LuongAttnDecoderRNN(attn_model, hidden_size, textdata.getVocabularySize(), n_layers, dropout=dropout
-                                      , use_cuda=args.cuda)
+        model = Seq2SeqLuongAttn(attn_model,hidden_size,textdata.getVocabularySize(), textdata.getVocabularySize(),
+                                 args.batch_size, textdata.word2id['<go>'])
     else:
         model = Seq2SeqmitAttn(hidden_size, textdata.getTargetMaxLength(), textdata.getVocabularySize(),
                                        args.batch_size, hidden_size, textdata.word2id['<go>'], textdata.word2id['<eos>'],
@@ -135,8 +134,8 @@ def main(args):
 
                     # Train Model
                     if args.intent:
-                        intent_batch = current_batch.seqIntent
-
+                        model.train_batch(input_batch, target_batch, input_batch_mask, target_batch_mask,
+                                          input_lengths,target_lengths)
                     else:
                         model.train_batch(input_batch, target_batch, input_batch_mask, target_batch_mask)
 
