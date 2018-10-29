@@ -38,9 +38,9 @@ class LuongEncoderRNN(nn.Module):
 
     def forward(self, input_seqs, input_lengths, hidden=None):
         embedded = self.embedding(input_seqs)
-        packed = torch.nn.utils.rnn.pack_padded_sequence(embedded, input_lengths)
-        output, hidden = self.lstm(packed, hidden)
-        output, _ = torch.nn.utils.rnn.pad_packed_sequence(output)  # unpack (back to padded)
+        #packed = torch.nn.utils.rnn.pack_padded_sequence(embedded, input_lengths)
+        output, hidden = self.lstm(embedded, hidden)
+        #output, _ = torch.nn.utils.rnn.pad_packed_sequence(output)  # unpack (back to padded)
         return output, hidden
 
 class EncoderRNN(nn.Module):
@@ -261,7 +261,7 @@ class LuongAttnDecoderRNN(nn.Module):
         # output = self.out(concat_output)
         s_t = hidden[0][-1].unsqueeze(0)
 
-        alpha, context = self.attention(encoder_outputs, s_t, inp_mask)
+        alpha, context = self.attention(encoder_outputs.transpose(0,1), s_t, inp_mask)
 
         # Attentional vector using the RNN hidden state and context vector
         # concatenated together (Luong eq. 5)
@@ -666,7 +666,8 @@ class Seq2SeqLuongAttn(nn.Module):
         # Run words through encoder
         #input_len = torch.sum(input_mask, dim=0)
         encoder_outputs, encoder_hidden = self.encoder(input_batch, input_length)
-
+        print(encoder_outputs.size())
+        print(input_mask.size())
         # Prepare input and output variables
 
         max_target_length = out_batch.shape[0]
