@@ -69,7 +69,7 @@ def main(args):
     # Initialize models
     if args.intent:
         model = Seq2SeqLuongAttn(attn_model,hidden_size,textdata.getVocabularySize(), textdata.getVocabularySize(),
-                                 args.batch_size, textdata.word2id['<go>'])
+                                 args.batch_size, textdata.word2id['<go>'],gpu=args.cuda)
     else:
         model = Seq2SeqmitAttn(hidden_size, textdata.getTargetMaxLength(), textdata.getVocabularySize(),
                                        args.batch_size, hidden_size, textdata.word2id['<go>'], textdata.word2id['<eos>'],
