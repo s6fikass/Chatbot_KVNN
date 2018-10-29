@@ -225,7 +225,6 @@ class LuongAttnDecoderRNN(nn.Module):
         # Calculate attention from current RNN state and all encoder outputs;
         # apply to encoder outputs to get weighted average
         attn_weights = self.attn(rnn_output, encoder_outputs)
-        print(attn_weights.type())
         #        print('[decoder] attn_weights', attn_weights.size())
         #         print('[decoder] encoder_outputs', encoder_outputs.size())
         intent_score = None
