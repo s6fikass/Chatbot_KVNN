@@ -242,7 +242,6 @@ class LuongAttnDecoderRNN(nn.Module):
             concated = torch.cat((intent_hidden, intent_context.transpose(0, 1)), 2)  # 1,B,D
             intent_score = self.intent_out(concated.squeeze(0))  # B,D
 
-        print(encoder_outputs.type())
         context = attn_weights.bmm(encoder_outputs.transpose(0, 1))  # B x S=1 x N
         #         print('[decoder] context', context.size())
 
@@ -618,7 +617,7 @@ class Seq2SeqLuongAttn(nn.Module):
         #self.embedding = nn.Embedding(self.output_size, self.emb_dim, padding_idx=0)
 
         self.encoder = LuongEncoderRNN(self.input_size, hidden_size, self.n_layers, dropout=dropout)
-        self.decoder = LuongAttnDecoderRNN(attn_model, hidden_size, self.output_size, self.n_layers, dropout=dropout)
+        self.decoder = LuongAttnDecoderRNN(attn_model, hidden_size, self.output_size, self.n_layers, dropout=dropout,use_cuda=self.use_cuda)
 
         if self.use_cuda:
             self.encoder = self.encoder.cuda()
