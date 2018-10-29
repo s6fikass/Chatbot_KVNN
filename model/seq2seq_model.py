@@ -204,17 +204,19 @@ class LuongAttnDecoderRNN(nn.Module):
         if attn_model != 'none':
             self.attn = Attn(attn_model, hidden_size, use_cuda)
             self.intent_attn = Attn(attn_model, hidden_size, use_cuda)
+            self.attention = Attention(hidden_size)
 
-    def forward(self, input_seq, last_context, last_hidden, encoder_outputs, intent_batch=False, Kb_batch=False):
+    def forward(self, input_seq, last_context, last_hidden, encoder_outputs, inp_mask, intent_batch=False, Kb_batch=False):
         # Note: we run this one step at a time (in order to do teacher forcing)
 
         # Get the embedding of the current input word (last output word)
         batch_size = input_seq.size(0)
         #         print('[decoder] input_seq', input_seq.size()) # batch_size x 1
         embedded = self.embedding(input_seq)
+
         embedded = self.embedding_dropout(embedded)
         embedded = embedded.view(1, batch_size, self.hidden_size)  # S=1 x B x N
-        #         print('[decoder] word_embedded', embedded.size())
+        #print('[decoder] word_embedded', embedded.size())
 
         # Get current hidden state from input word and last hidden state
         #         print('[decoder] last_hidden', last_hidden.size())
@@ -224,7 +226,7 @@ class LuongAttnDecoderRNN(nn.Module):
 
         # Calculate attention from current RNN state and all encoder outputs;
         # apply to encoder outputs to get weighted average
-        attn_weights = self.attn(rnn_output, encoder_outputs)
+        #attn_weights = self.attn(rnn_output, encoder_outputs)
         #        print('[decoder] attn_weights', attn_weights.size())
         #         print('[decoder] encoder_outputs', encoder_outputs.size())
         intent_score = None
@@ -241,25 +243,37 @@ class LuongAttnDecoderRNN(nn.Module):
             concated = torch.cat((intent_hidden, intent_context.transpose(0, 1)), 2)  # 1,B,D
             intent_score = self.intent_out(concated.squeeze(0))  # B,D
 
-        context = attn_weights.bmm(encoder_outputs.transpose(0, 1))  # B x S=1 x N
-        #         print('[decoder] context', context.size())
+        # context = attn_weights.bmm(encoder_outputs.transpose(0, 1))  # B x S=1 x N
+        # #         print('[decoder] context', context.size())
+        #
+        # # Attentional vector using the RNN hidden state and context vector
+        # # concatenated together (Luong eq. 5)
+        # rnn_output = rnn_output.squeeze(0)  # S=1 x B x N -> B x N
+        # context = context.squeeze(1)  # B x S=1 x N -> B x N
+        # #         print('[decoder] rnn_output', rnn_output.size())
+        # #         print('[decoder] context', context.size())
+        #
+        # concat_input = torch.cat((rnn_output, context), 1)
+        # concat_output = torch.tanh(self.concat(concat_input))
+        #
+        # # Finally predict next token (Luong eq. 6)
+        # #         output = F.log_softmax(self.out(concat_output))
+        # output = self.out(concat_output)
+        s_t = hidden[0][-1].unsqueeze(0)
+
+        alpha, context = self.attention(encoder_outputs, s_t, inp_mask)
 
         # Attentional vector using the RNN hidden state and context vector
         # concatenated together (Luong eq. 5)
         rnn_output = rnn_output.squeeze(0)  # S=1 x B x N -> B x N
         context = context.squeeze(1)  # B x S=1 x N -> B x N
-        #         print('[decoder] rnn_output', rnn_output.size())
-        #         print('[decoder] context', context.size())
-
         concat_input = torch.cat((rnn_output, context), 1)
         concat_output = torch.tanh(self.concat(concat_input))
 
-        # Finally predict next token (Luong eq. 6)
-        #         output = F.log_softmax(self.out(concat_output))
+        # Finally predict next token (Luong eq. 6, without softmax)
         output = self.out(concat_output)
-
         # Return final output, hidden state, and attention weights (for visualization)
-        return output, context, hidden, attn_weights, intent_score
+        return output, context, hidden, alpha, intent_score
 
 
 class Decoder(nn.Module):
@@ -679,7 +693,7 @@ class Seq2SeqLuongAttn(nn.Module):
         if 1:
             for t in range(max_target_length):
                 decoder_output, decoder_context, decoder_hidden, decoder_attn, _ = self.decoder(
-                    decoder_input, decoder_context, decoder_hidden, encoder_outputs
+                    decoder_input, decoder_context, decoder_hidden, encoder_outputs, input_mask
                 )
                 all_decoder_outputs[t] = decoder_output
                 decoder_input = out_batch[t]
