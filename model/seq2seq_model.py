@@ -708,7 +708,7 @@ class Seq2SeqLuongAttn(nn.Module):
         loss = length_cross_entropy(
             all_decoder_outputs.transpose(0, 1).contiguous(),  # seq x batch -> batch x seq
             out_batch.transpose(0, 1).contiguous(),  # seq x batch -> batch x seq
-            output_length
+            output_length, self.use_cuda
         )
         # loss = loss_Vocab
         loss.backward()
