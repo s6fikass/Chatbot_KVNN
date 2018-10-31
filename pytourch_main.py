@@ -69,17 +69,25 @@ def main(args):
     # Initialize models
     if args.intent:
         model = Seq2SeqLuongAttn(attn_model,hidden_size,textdata.getVocabularySize(), textdata.getVocabularySize(),
-                                 args.batch_size, textdata.word2id['<go>'],gpu=args.cuda)
+                                 args.batch_size, textdata.word2id['<go>'], textdata.word2id['<eos>'], gpu=args.cuda)
     else:
         model = Seq2SeqmitAttn(hidden_size, textdata.getTargetMaxLength(), textdata.getVocabularySize(),
-                                       args.batch_size, hidden_size, textdata.word2id['<go>'], textdata.word2id['<eos>'],
-                                       None, gpu=args.cuda, lr=0.001, train_emb=False,
-                                       n_layers=1, clip=2.0, pretrained_emb=None, dropout=0.0, emb_drop=0.0,
-                                       teacher_forcing_ratio=0.0)
+                               args.batch_size, hidden_size, textdata.word2id['<go>'], textdata.word2id['<eos>'],
+                               None, gpu=args.cuda, lr=0.001, train_emb=False,
+                               n_layers=1, clip=2.0, pretrained_emb=None, dropout=0.0, emb_drop=0.0,
+                               teacher_forcing_ratio=0.0)
+
+    directory = os.path.join("trained_model", model.__class__.__name__)
+
+    if not os.path.exists(directory):
+        os.makedirs(directory)
 
     if args.loadFilename:
-        checkpoint = torch.load(args.loadFilename)
-        model.load_state_dict(torch.load(args.loadFilename))
+        if args.cuda:
+            model.load_state_dict(torch.load(os.path.join(directory, '{}.bin'.format(args.loadFilename))))
+        else:
+            model.load_state_dict(torch.load(os.path.join(directory, '{}.bin'.format(args.loadFilename)),
+                                                          map_location=lambda storage, loc: storage))
 
     # Keep track of time elapsed and running averages
     start = time.time()
@@ -98,7 +106,7 @@ def main(args):
 
     if args.val:
         global_metric_score, individual_metric, moses_multi_bleu_score = \
-            evaluate_model(args, textdata, encoder, decoder)
+            model.evaluate_model(args, textdata)
         print("Model Bleu using corpus bleu: ", global_metric_score)
         print("Model Bleu using sentence bleu: ", sum(individual_metric)/len(individual_metric))
         print("Model Bleu using moses_multi_bleu_score :", moses_multi_bleu_score)
@@ -139,17 +147,6 @@ def main(args):
                     else:
                         model.train_batch(input_batch, target_batch, input_batch_mask, target_batch_mask)
 
-
-                    # # Run the train function
-                    # loss, ec, dc = train(args, input_batch, target_batch, encoder, decoder,
-                    #                      encoder_optimizer, decoder_optimizer, criterion,
-                    #                      args.batch_size, input_lengths, target_lengths, kb=kb_batch,intent_batch=intent_batch
-                    #                      )
-
-                    # epoch_loss += loss
-                    # epoch_ec += ec
-                    # epoch_dc += dc
-
                 # Keep track of loss
                 print_loss_total += model.loss
                 plot_loss_total += model.loss
@@ -177,7 +174,8 @@ def main(args):
                     print("Model Bleu using corpus bleu: ", global_metric_score)
                     print("Model Bleu using sentence bleu: ", sum(individual_metric) / len(individual_metric))
                     print("Model Bleu using moses_multi_bleu_score :", moses_multi_bleu_score)
-                    bleu = max(global_metric_score, sum(individual_metric) / len(individual_metric),
+                    bleu =moses_multi_bleu_score
+                    max(global_metric_score, sum(individual_metric) / len(individual_metric),
                                moses_multi_bleu_score/100)
 
                     if bleu > avg_best_metric:
@@ -186,7 +184,7 @@ def main(args):
                     else:
                         cnt += 1
 
-                    if cnt == 5: break
+                    if cnt == 10: break
 
                 # if epoch % plot_every == 0:
                 #
@@ -228,26 +226,17 @@ def main(args):
                 print('Model training stopped early.')
                 break
 
-
         # model.save_weights("model_weights_nkbb.hdf5")
         print('Model training complete.')
         print('Saving Model.')
 
-        directory = os.path.join("trained_model", decoder.__class__.__name__,
-                                 '{}'.format(epoch))
-        if not os.path.exists(directory):
-            os.makedirs(directory)
-        torch.save({
-            'epoch': epoch,
-            'enc': encoder.state_dict(),
-            'dec': decoder.state_dict(),
-            'enc_opt': encoder_optimizer.state_dict(),
-            'dec_opt': decoder_optimizer.state_dict(),
-            'loss': print_loss_total,
-            'plot_losses': plot_losses,
-            'ecs': ecs,
-            'dcs': dca,
-        }, os.path.join(directory, '{}_{}.tar'.format(epoch, 'trained_model')))
+        torch.save(model.state_dict(), os.path.join(directory,'{}.bin'.format(epoch)))
+
+        global_metric_score, individual_metric, moses_multi_bleu_score = \
+            model.evaluate_model(args, textdata)
+        print("Test Model Bleu using corpus bleu: ", global_metric_score)
+        print("Test Model Bleu using sentence bleu: ", sum(individual_metric) / len(individual_metric))
+        print("Test Model Bleu using moses_multi_bleu_score :", moses_multi_bleu_score)
 
 
 if __name__ == '__main__':

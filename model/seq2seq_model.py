@@ -742,10 +742,8 @@ class Seq2SeqLuongAttn(nn.Module):
         decoder_context = encoder_outputs[-1]  # Variable(torch.zeros(batch_size, decoder.hidden_size))
         decoder_hidden = encoder_hidden  # Use last (forward) hidden state from encoder
 
-        if output_length is None:
-            decoder_maxlength = max_length + 2
-        else:
-            decoder_maxlength = max(output_length)
+        decoder_maxlength = max(output_length)
+
 
         all_decoder_predictions = Variable(torch.zeros(decoder_maxlength, self.batch_size))
         # all_decoder_outputs = Variable(torch.zeros(max_target_length, batch_size, decoder.output_size))
@@ -767,7 +765,7 @@ class Seq2SeqLuongAttn(nn.Module):
             #     )
             # else:
             decoder_output, decoder_context, decoder_hidden, decoder_attention, _ = self.decoder(
-                    decoder_input, decoder_context, decoder_hidden, encoder_outputs
+                    decoder_input, decoder_context, decoder_hidden, encoder_outputs, input_mask
                 )
 
             # Choose top word from output
@@ -833,7 +831,7 @@ class Seq2SeqLuongAttn(nn.Module):
 
         candidates2, references2 = data.get_candidates(target_batches, all_predicted, True)
 
-        moses_multi_bleu_score = moses_multi_bleu(references2, candidates2, True)
+        moses_multi_bleu_score = moses_multi_bleu(references2, candidates2, True, True)
 
         return global_metric_score, individual_metric, moses_multi_bleu_score
 
