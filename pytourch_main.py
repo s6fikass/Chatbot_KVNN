@@ -106,7 +106,7 @@ def main(args):
 
     if args.val:
         global_metric_score, individual_metric, moses_multi_bleu_score = \
-            model.evaluate_model(args, textdata)
+            model.evaluate_model(textdata)
         print("Model Bleu using corpus bleu: ", global_metric_score)
         print("Model Bleu using sentence bleu: ", sum(individual_metric)/len(individual_metric))
         print("Model Bleu using moses_multi_bleu_score :", moses_multi_bleu_score)

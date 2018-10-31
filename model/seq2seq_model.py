@@ -12,6 +12,7 @@ from torch.autograd import Variable
 from torch import optim
 import torch.nn.functional as F
 from util.utils import masked_cross_entropy
+import os
 
 from util.measures import moses_multi_bleu
 import nltk
@@ -830,7 +831,7 @@ class Seq2SeqLuongAttn(nn.Module):
 
         candidates2, references2 = data.get_candidates(target_batches, all_predicted, True)
 
-        moses_multi_bleu_score = moses_multi_bleu(candidates2,references2, True, True)
+        moses_multi_bleu_score = moses_multi_bleu(candidates2,references2, True, os.path.join("trained_model", self.__class__.__name__))
 
         return global_metric_score, individual_metric, moses_multi_bleu_score
 
