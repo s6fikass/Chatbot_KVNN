@@ -68,7 +68,7 @@ def main(args):
 
     # Initialize models
     if args.intent:
-        model = Seq2SeqLuongAttn(attn_model,hidden_size,textdata.getVocabularySize(), textdata.getVocabularySize(),
+        model = Seq2SeqLuongAttn(attn_model, hidden_size,textdata.getVocabularySize(), textdata.getVocabularySize(),
                                  args.batch_size, textdata.word2id['<go>'], textdata.word2id['<eos>'], gpu=args.cuda)
     else:
         model = Seq2SeqmitAttn(hidden_size, textdata.getTargetMaxLength(), textdata.getVocabularySize(),
@@ -221,22 +221,22 @@ def main(args):
                 #             'ecs':ecs,
                 #             'dcs':dca,
                 #         }, os.path.join(directory, '{}_{}.tar'.format(epoch, "model_glove_{}".format(args.glove))))
-
+                break
             except KeyboardInterrupt as e:
                 print('Model training stopped early.')
                 break
 
         # model.save_weights("model_weights_nkbb.hdf5")
         print('Model training complete.')
-        print('Saving Model.')
-
-        torch.save(model.state_dict(), os.path.join(directory,'{}.bin'.format(epoch)))
 
         global_metric_score, individual_metric, moses_multi_bleu_score = \
-            model.evaluate_model(args, textdata)
+            model.evaluate_model(textdata)
         print("Test Model Bleu using corpus bleu: ", global_metric_score)
         print("Test Model Bleu using sentence bleu: ", sum(individual_metric) / len(individual_metric))
         print("Test Model Bleu using moses_multi_bleu_score :", moses_multi_bleu_score)
+
+        print('Saving Model.')
+        torch.save(model.state_dict(), os.path.join(directory,'{}.bin'.format(epoch)))
 
 
 if __name__ == '__main__':

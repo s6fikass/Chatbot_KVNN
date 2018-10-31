@@ -83,12 +83,12 @@ def moses_multi_bleu(hypotheses, references, lowercase=False, non_temp_files=Fal
 
     if non_temp_files:
         hypothesis_file = open("hypothesis_file.txt", "w")
-        hypothesis_file.write("\n".join(hypotheses).encode("utf-8"))
-        hypothesis_file.write(b"\n")
+        hypothesis_file.write("\n".join(hypotheses))
+        hypothesis_file.write("\n")
         hypothesis_file.flush()
         reference_file = open("reference_file.txt", "w")
-        reference_file.write("\n".join(references).encode("utf-8"))
-        reference_file.write(b"\n")
+        reference_file.write("\n".join(references))
+        reference_file.write("\n")
         reference_file.flush()
     else:
         # Dump hypotheses and references to tempfiles
