@@ -221,7 +221,6 @@ def main(args):
                 #             'ecs':ecs,
                 #             'dcs':dca,
                 #         }, os.path.join(directory, '{}_{}.tar'.format(epoch, "model_glove_{}".format(args.glove))))
-                break
             except KeyboardInterrupt as e:
                 print('Model training stopped early.')
                 break
