@@ -576,7 +576,7 @@ class Seq2SeqmitAttn(nn.Module):
 
             print("Predicted : ", data.sequence2str(batch_predictions[0].cpu().numpy(), clean=True))
             print("Target : ", data.sequence2str(batch.targetSeqs[0], clean=True))
-            batch_metric_score = batch_metric_score / self.batch_size
+            batch_metric_score = batch_metric_score / self.b_size
 
             all_predicted.append(batch_predictions)
             target_batches.append(batch.targetSeqs)
