@@ -250,4 +250,18 @@ def train_kb(args, input_batches, target_batches, kb_batch, encoder, decoder, en
         encoder=encoder.cuda()
         decoder=decoder.cuda()
 
+if not os.path.exists(directory):
+    os.makedirs(directory)
+torch.save({
+    'epoch': epoch,
+    'enc': model.encoder.state_dict(),
+    'dec': model.decoder.state_dict(),
+    'enc_opt': model.encoder_optimizer.state_dict(),
+    'dec_opt': model.decoder_optimizer.state_dict(),
+    'loss': print_loss_total,
+    'plot_losses': plot_losses,
+    'ecs': ecs,
+    'dcs': dca,
+}, os.path.join(directory, '{}_{}.tar'.format(epoch, 'trained_model')))
+
 
