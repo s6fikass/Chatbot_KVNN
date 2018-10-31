@@ -94,7 +94,7 @@ def main(args):
     plot_losses = []
     print_loss_total = 0  # Reset every print_every
     plot_loss_total = 0  # Reset every plot_every
-
+    cnt = 0
     # Begin!
     ecs = []
     dcs = []
