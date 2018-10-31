@@ -12,6 +12,7 @@ from torch.autograd import Variable
 from torch import optim
 import torch.nn.functional as F
 from util.utils import masked_cross_entropy
+import os
 
 from util.measures import moses_multi_bleu
 import nltk
@@ -571,11 +572,11 @@ class Seq2SeqmitAttn(nn.Module):
             for i, sen in enumerate(batch_predictions):
                 predicted = data.sequence2str(sen.cpu().numpy())
                 reference = data.sequence2str(batch.targetSeqs[i])
-                print("Predicted : ", predicted)
-                print("Target : ", reference)
                 batch_metric_score += nltk.translate.bleu_score.sentence_bleu([reference], predicted)
 
-            batch_metric_score = batch_metric_score / self.b_size
+            print("Predicted : ", data.sequence2str(batch_predictions[0].cpu().numpy(), clean=True))
+            print("Target : ", data.sequence2str(batch.targetSeqs[0], clean=True))
+            batch_metric_score = batch_metric_score / self.batch_size
 
             all_predicted.append(batch_predictions)
             target_batches.append(batch.targetSeqs)
@@ -587,7 +588,8 @@ class Seq2SeqmitAttn(nn.Module):
 
         candidates2, references2 = data.get_candidates(target_batches, all_predicted, True)
 
-        moses_multi_bleu_score = moses_multi_bleu(references2, candidates2, True)
+        moses_multi_bleu_score = moses_multi_bleu(candidates2, references2, True,
+                                                  os.path.join("trained_model", self.__class__.__name__))
 
         return global_metric_score, individual_metric, moses_multi_bleu_score
 
@@ -742,8 +744,7 @@ class Seq2SeqLuongAttn(nn.Module):
         decoder_context = encoder_outputs[-1]  # Variable(torch.zeros(batch_size, decoder.hidden_size))
         decoder_hidden = encoder_hidden  # Use last (forward) hidden state from encoder
 
-        decoder_maxlength = max(output_length)
-
+        decoder_maxlength = max(max(output_length), input_batch.size(0))
 
         all_decoder_predictions = Variable(torch.zeros(decoder_maxlength, self.batch_size))
         # all_decoder_outputs = Variable(torch.zeros(max_target_length, batch_size, decoder.output_size))
@@ -813,12 +814,12 @@ class Seq2SeqLuongAttn(nn.Module):
 
             batch_metric_score = 0
             for i, sen in enumerate(batch_predictions):
-                predicted = data.sequence2str(sen.cpu().numpy())
-                reference = data.sequence2str(batch.targetSeqs[i])
-                print("Predicted : ", predicted)
-                print("Target : ", reference)
+                predicted = data.sequence2str(sen.cpu().numpy(), clean=True)
+                reference = data.sequence2str(batch.targetSeqs[i], clean=True)
                 batch_metric_score += nltk.translate.bleu_score.sentence_bleu([reference], predicted)
 
+            print("Predicted : ", data.sequence2str(batch_predictions[0].cpu().numpy(), clean=True))
+            print("Target : ", data.sequence2str(batch.targetSeqs[0], clean=True))
             batch_metric_score = batch_metric_score / self.batch_size
 
             all_predicted.append(batch_predictions)
@@ -831,7 +832,7 @@ class Seq2SeqLuongAttn(nn.Module):
 
         candidates2, references2 = data.get_candidates(target_batches, all_predicted, True)
 
-        moses_multi_bleu_score = moses_multi_bleu(references2, candidates2, True, True)
+        moses_multi_bleu_score = moses_multi_bleu(candidates2,references2, True, os.path.join("trained_model", self.__class__.__name__))
 
         return global_metric_score, individual_metric, moses_multi_bleu_score
 
