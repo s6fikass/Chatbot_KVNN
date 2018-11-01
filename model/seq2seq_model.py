@@ -94,7 +94,7 @@ class EncoderRNN(nn.Module):
 
 # Luong attention layer
 class Attn(torch.nn.Module):
-    def __init__(self, method, hidden_size):
+    def __init__(self, method, hidden_size, gpu):
         super(Attn, self).__init__()
         self.method = method
         if self.method not in ['dot', 'general', 'concat']:
@@ -104,7 +104,10 @@ class Attn(torch.nn.Module):
             self.attn = torch.nn.Linear(self.hidden_size, hidden_size)
         elif self.method == 'concat':
             self.attn = torch.nn.Linear(self.hidden_size * 2, hidden_size)
-            self.v = torch.nn.Parameter(torch.FloatTensor(hidden_size))
+            if gpu:
+                self.v = torch.nn.Parameter(torch.FloatTensor(hidden_size).cuda())
+            else:
+                self.v = torch.nn.Parameter(torch.FloatTensor(hidden_size))
 
     def dot_score(self, hidden, encoder_output):
         return torch.sum(hidden * encoder_output, dim=2)
@@ -190,7 +193,7 @@ class LuongAttnDecoderRNN(nn.Module):
         # Choose attention model
         if attn_model != 'none':
             #self.attn = Attn(attn_model, hidden_size, use_cuda)
-            self.intent_attn = Attn(attn_model, hidden_size) #Attn(attn_model, hidden_size, use_cuda)
+            self.intent_attn = Attn(attn_model, hidden_size, self.use_cuda) #Attn(attn_model, hidden_size, use_cuda)
             self.attention = Attention(hidden_size)
 
     def forward(self, input_seq, last_context, last_hidden, encoder_outputs, inp_mask, intent_batch=False, Kb_batch=False):
@@ -226,27 +229,11 @@ class LuongAttnDecoderRNN(nn.Module):
             intent_hidden = hidden[0].clone()
             # print("intent_intent_hidden", intent_hidden.shape)
 
-            intent_attn_weights= self.intent_attn(encoder_outputs, intent_hidden)
+            intent_attn_weights= self.intent_attn(intent_hidden, encoder_outputs)
             intent_context = intent_attn_weights.bmm(encoder_outputs.transpose(0, 1))
             concated = torch.cat((intent_hidden, intent_context.transpose(0, 1)), 2)  # 1,B,D
             intent_score = self.intent_out(concated.squeeze(0))  # B,D
 
-        # context = attn_weights.bmm(encoder_outputs.transpose(0, 1))  # B x S=1 x N
-        # #         print('[decoder] context', context.size())
-        #
-        # # Attentional vector using the RNN hidden state and context vector
-        # # concatenated together (Luong eq. 5)
-        # rnn_output = rnn_output.squeeze(0)  # S=1 x B x N -> B x N
-        # context = context.squeeze(1)  # B x S=1 x N -> B x N
-        # #         print('[decoder] rnn_output', rnn_output.size())
-        # #         print('[decoder] context', context.size())
-        #
-        # concat_input = torch.cat((rnn_output, context), 1)
-        # concat_output = torch.tanh(self.concat(concat_input))
-        #
-        # # Finally predict next token (Luong eq. 6)
-        # #         output = F.log_softmax(self.out(concat_output))
-        # output = self.out(concat_output)
         s_t = hidden[0][-1].unsqueeze(0)
         alpha, context = self.attention(encoder_outputs.transpose(0,1), s_t, inp_mask)
 
@@ -618,7 +605,7 @@ class Seq2SeqAttnmitIntent(nn.Module):
         #self.embedding = nn.Embedding(self.output_size, self.emb_dim, padding_idx=0)
 
         self.encoder = LuongEncoderRNN(self.input_size, hidden_size, self.n_layers, dropout=dropout)
-        self.decoder = LuongAttnDecoderRNN(attn_model, hidden_size, self.output_size, self.n_layers, dropout=dropout,use_cuda=self.use_cuda)
+        self.decoder = LuongAttnDecoderRNN(attn_model, hidden_size, self.output_size, self.n_layers, dropout=dropout, use_cuda=self.use_cuda)
 
         if self.use_cuda:
             self.encoder = self.encoder.cuda()

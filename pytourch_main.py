@@ -53,7 +53,7 @@ def main(args):
     print('Compiling Model.')
 
     # Configure models
-    attn_model = 'dot'
+    attn_model = 'concat'
     n_layers = 1
     dropout = 0.0
     hidden_size = 200
