@@ -690,9 +690,11 @@ class Seq2SeqAttnmitIntent(nn.Module):
             out_batch.transpose(0, 1).contiguous(),  # -> B x S
             target_mask
         )
-
+        print('loss',loss)
         loss_function_2 = nn.CrossEntropyLoss()
         intent_loss = loss_function_2(intent_score, intent_output)
+        print(intent_loss)
+        print(loss)
         loss = loss.add(2 * intent_loss.item())
 
         loss.backward()
