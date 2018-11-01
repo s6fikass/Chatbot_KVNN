@@ -30,12 +30,8 @@
 # textdata = TextData("data/kvret_train_public.json","data/kvret_dev_public.json","data/kvret_test_public.json")
 # batches = textdata.getBatches(1, valid=True, transpose=False)
 # print(textdata.sequence2str(batches[0].decoderSeqs[0]))
-x=[]
-x.append(["self.goToken"] + [1,2,3] + ["self.eosToken"])
-y=[]
-y.append(x[-1][1:])
-print(x)
-print(y)
+x=5
+print(x/0)
 # print (textdata.sequence2str(textdata.trainingSamples[0][0]))
 # print (textdata.sequence2str(textdata.trainingSamples[0][1]))
 # print (textdata.trainingSamples[0][2])
