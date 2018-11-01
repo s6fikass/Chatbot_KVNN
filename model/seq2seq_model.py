@@ -262,7 +262,6 @@ class LuongAttnDecoderRNN(nn.Module):
         # #         output = F.log_softmax(self.out(concat_output))
         # output = self.out(concat_output)
         s_t = hidden[0][-1].unsqueeze(0)
-        print(inp_mask)
         alpha, context = self.attention(encoder_outputs.transpose(0,1), s_t, inp_mask)
 
         # Attentional vector using the RNN hidden state and context vector
