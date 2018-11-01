@@ -188,7 +188,7 @@ def main(args):
                     else:
                         cnt += 1
 
-                    if cnt == 10: break
+                    if cnt == 5: break
 
                 # if epoch % plot_every == 0:
                 #
@@ -283,7 +283,7 @@ if __name__ == '__main__':
                             help="""Location of trained model """,
                             required=False, default="Seq2Seq", type=str)
 
-    named_args.add_argument('-vv', '--val', metavar='|',
+    named_args.add_argument('-val', '--val', metavar='|',
                             help="""Location of trained model """,
                             required=False, default=False, type=bool)
 

@@ -92,59 +92,45 @@ class EncoderRNN(nn.Module):
         return outputs, hidden
 
 
-#
-class Attn(nn.Module):
-    def __init__(self, method, hidden_size, use_cuda=None):
+# Luong attention layer
+class Attn(torch.nn.Module):
+    def __init__(self, method, hidden_size):
         super(Attn, self).__init__()
-
         self.method = method
+        if self.method not in ['dot', 'general', 'concat']:
+            raise ValueError(self.method, "is not an appropriate attention method.")
         self.hidden_size = hidden_size
-        self.cuda = use_cuda
-
         if self.method == 'general':
-            self.attn = nn.Linear(self.hidden_size, hidden_size)
-
+            self.attn = torch.nn.Linear(self.hidden_size, hidden_size)
         elif self.method == 'concat':
-            self.attn = nn.Linear(self.hidden_size * 2, hidden_size)
-            self.v = nn.Parameter(torch.FloatTensor(1, hidden_size))
+            self.attn = torch.nn.Linear(self.hidden_size * 2, hidden_size)
+            self.v = torch.nn.Parameter(torch.FloatTensor(hidden_size))
+
+    def dot_score(self, hidden, encoder_output):
+        return torch.sum(hidden * encoder_output, dim=2)
+
+    def general_score(self, hidden, encoder_output):
+        energy = self.attn(encoder_output)
+        return torch.sum(hidden * energy, dim=2)
+
+    def concat_score(self, hidden, encoder_output):
+        energy = self.attn(torch.cat((hidden.expand(encoder_output.size(0), -1, -1), encoder_output), 2)).tanh()
+        return torch.sum(self.v * energy, dim=2)
 
     def forward(self, hidden, encoder_outputs):
-        max_len = encoder_outputs.size(0)
-
-        this_batch_size = encoder_outputs.size(1)
-
-        # Create variable to store attention energies
-        attn_energies = Variable(torch.zeros(this_batch_size, max_len))  # B x S
-
-        if self.cuda:
-            attn_energies = attn_energies.cuda()
-
-        # For each batch of encoder outputs
-        for b in range(this_batch_size):
-            # Calculate energy for each encoder output
-            for i in range(max_len):
-                attn_energies[b, i] = self.score(hidden[:, b], encoder_outputs[i, b].unsqueeze(0))
-
-        # Normalize energies to weights in range 0 to 1, resize to 1 x B x S
-        return F.softmax(attn_energies, dim=0).unsqueeze(1)
-
-    def score(self, hidden, encoder_output):
-
-        if self.method == 'dot':
-
-            energy = torch.dot(hidden.view(-1), encoder_output.view(-1))
-            return energy
-
-        elif self.method == 'general':
-            energy = self.attn(torch.cat((hidden, encoder_output), 1))
-            energy = torch.dot(self.v.view(-1), energy.view(-1))
-            return energy
-
+        # Calculate the attention weights (energies) based on the given method
+        if self.method == 'general':
+            attn_energies = self.general_score(hidden, encoder_outputs)
         elif self.method == 'concat':
-            energy = self.attn(torch.cat((hidden, encoder_output), 1))
-            energy = self.v.dot(energy)
-            return energy
+            attn_energies = self.concat_score(hidden, encoder_outputs)
+        elif self.method == 'dot':
+            attn_energies = self.dot_score(hidden, encoder_outputs)
 
+        # Transpose max_length and batch_size dimensions
+        attn_energies = attn_energies.t()
+
+        # Return the softmax normalized probability scores (with added dimension)
+        return F.softmax(attn_energies, dim=1).unsqueeze(1)
 
 class Attention(nn.Module):
     """
@@ -203,8 +189,8 @@ class LuongAttnDecoderRNN(nn.Module):
 
         # Choose attention model
         if attn_model != 'none':
-            self.attn = Attn(attn_model, hidden_size, use_cuda)
-            self.intent_attn = Attention(hidden_size)#Attn(attn_model, hidden_size, use_cuda)
+            #self.attn = Attn(attn_model, hidden_size, use_cuda)
+            self.intent_attn = Attn(attn_model, hidden_size) #Attn(attn_model, hidden_size, use_cuda)
             self.attention = Attention(hidden_size)
 
     def forward(self, input_seq, last_context, last_hidden, encoder_outputs, inp_mask, intent_batch=False, Kb_batch=False):
@@ -240,8 +226,8 @@ class LuongAttnDecoderRNN(nn.Module):
             intent_hidden = hidden[0].clone()
             # print("intent_intent_hidden", intent_hidden.shape)
 
-            alpha, intent_context= self.intent_attn(encoder_outputs.transpose(0,1), intent_hidden, inp_mask)
-            #intent_context = intent_attn_weights.bmm(encoder_outputs.transpose(0, 1))
+            intent_attn_weights= self.intent_attn(encoder_outputs, intent_hidden)
+            intent_context = intent_attn_weights.bmm(encoder_outputs.transpose(0, 1))
             concated = torch.cat((intent_hidden, intent_context.transpose(0, 1)), 2)  # 1,B,D
             intent_score = self.intent_out(concated.squeeze(0))  # B,D
 
@@ -804,6 +790,8 @@ class Seq2SeqAttnmitIntent(nn.Module):
             batches = data.getBatches(self.batch_size, valid=True, transpose=False)
         else:
             batches = data.getBatches(self.batch_size, test=True, transpose=False)
+            output_file = open(os.path.join(os.path.join("trained_model", self.__class__.__name__), "output_file.txt"),
+                               "w")
 
         all_predicted = []
         target_batches = []
@@ -826,10 +814,21 @@ class Seq2SeqAttnmitIntent(nn.Module):
                 reference = data.sequence2str(batch.targetSeqs[i], clean=True)
                 batch_metric_score += nltk.translate.bleu_score.sentence_bleu([reference], predicted)
 
-            print("Predicted : ", data.sequence2str(batch_predictions[0].cpu().numpy(), clean=True),
-                  ", intent:", data.id2intent[intent[i][0].item()])
-            print("Target : ", data.sequence2str(batch.targetSeqs[0], clean=True),
-                  ", intent:", data.id2intent[batch.seqIntent[i]])
+                if not valid and not test:
+                    output_file.write("\n"+"Input : " +
+                                                data.sequence2str(batch.encoderSeqs[i], clean=True))
+
+                    output_file.write("\n"+"Predicted : " +
+                                      data.sequence2str(batch_predictions[i].cpu().numpy(), clean=True) +
+                                      ", intent:" + data.id2intent[intent[i][0].item()]
+                                      )
+
+                    output_file.write("\n"+"Target : " +
+                                      data.sequence2str(batch.targetSeqs[i], clean=True) +
+                                      ", intent:" + data.id2intent[batch.seqIntent[i]])
+                    output_file.write("\n")
+                    output_file.flush()
+
             batch_metric_score = batch_metric_score / self.batch_size
 
             all_predicted.append(batch_predictions)
