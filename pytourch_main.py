@@ -299,6 +299,10 @@ if __name__ == '__main__':
                             help="""Joint learning based on intent """,
                             required=False, default=False, type=bool)
 
+    named_args.add_argument('-kb', '--kb', metavar='|',
+                            help="""Joint learning based on intent with kb tracking and key-value lookups """,
+                            required=False, default=False, type=bool)
+
     named_args.add_argument('-test', '--test', metavar='|',
                             help="""test the model on one batch and evaluate on the same """,
                             required=False, default=False, type=bool)
