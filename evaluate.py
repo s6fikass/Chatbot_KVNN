@@ -164,16 +164,11 @@ def evaluate(args,encoder, decoder, input_seqs, target_seqs, input_length=None, 
         decoder_input = topi
         if args.cuda: decoder_input = decoder_input.cuda()
 
-        if args.intent:
-            v, i = intent_scores.data.topk(1)
-            intent_pred=i
-
-
     # Set back to training mode
     encoder.train(True)
     decoder.train(True)
 
-    return all_decoder_predictions, intent_pred
+    return all_decoder_predictions
 
 
 def evaluate_randomly(args,data, encoder, decoder):

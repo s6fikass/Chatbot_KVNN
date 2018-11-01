@@ -8,7 +8,7 @@ import argparse
 import numpy as np
 
 from corpus.textdata import TextData
-from model.seq2seq_model import EncoderRNN, LuongAttnDecoderRNN, Seq2SeqmitAttn, Seq2SeqLuongAttn  # KVEncoderRNN, KVAttnDecoderRNN,
+from model.seq2seq_model import EncoderRNN, LuongAttnDecoderRNN, Seq2SeqmitAttn, Seq2SeqAttnmitIntent  # KVEncoderRNN, KVAttnDecoderRNN,
 
 import torch
 import torch.nn as nn
@@ -68,7 +68,7 @@ def main(args):
 
     # Initialize models
     if args.intent:
-        model = Seq2SeqLuongAttn(attn_model, hidden_size,textdata.getVocabularySize(), textdata.getVocabularySize(),
+        model = Seq2SeqAttnmitIntent(attn_model, hidden_size,textdata.getVocabularySize(), textdata.getVocabularySize(),
                                  args.batch_size, textdata.word2id['<go>'], textdata.word2id['<eos>'], gpu=args.cuda)
     else:
         model = Seq2SeqmitAttn(hidden_size, textdata.getTargetMaxLength(), textdata.getVocabularySize(),
@@ -130,6 +130,7 @@ def main(args):
                 for current_batch in tqdm(batches, desc='Processing batches'):
 
                     kb_batch=current_batch.kb_inputs
+                    intent_batch = current_batch.seqIntent
 
                     # Turn padded arrays into (batch_size x max_len) tensors, transpose into (max_len x batch_size)
                     target_lengths = current_batch.decoderSeqsLen
@@ -143,7 +144,10 @@ def main(args):
                     # Train Model
                     if args.intent:
                         model.train_batch(input_batch, target_batch, input_batch_mask, target_batch_mask,
-                                          input_lengths,target_lengths)
+                                          input_lengths,target_lengths, intent_batch)
+                    elif args.kb:
+                        model.train_batch(input_batch, target_batch, input_batch_mask, target_batch_mask,
+                                          input_lengths, target_lengths, intent_batch, kb_batch)
                     else:
                         model.train_batch(input_batch, target_batch, input_batch_mask, target_batch_mask)
 
