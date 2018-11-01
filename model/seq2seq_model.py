@@ -262,6 +262,7 @@ class LuongAttnDecoderRNN(nn.Module):
         # #         output = F.log_softmax(self.out(concat_output))
         # output = self.out(concat_output)
         s_t = hidden[0][-1].unsqueeze(0)
+        print(inp_mask)
         alpha, context = self.attention(encoder_outputs.transpose(0,1), s_t, inp_mask)
 
         # Attentional vector using the RNN hidden state and context vector
@@ -739,6 +740,7 @@ class Seq2SeqAttnmitIntent(nn.Module):
 
         if self.use_cuda:
             input_batch = input_batch.cuda()
+            input_mask= input_mask.cuda()
 
         # Set to not-training mode to disable dropout
         self.encoder.train(False)
