@@ -74,7 +74,7 @@ def main(args):
         model = Seq2SeqmitAttn(hidden_size, textdata.getTargetMaxLength(), textdata.getVocabularySize(),
                                args.batch_size, hidden_size, textdata.word2id['<go>'], textdata.word2id['<eos>'],
                                None, gpu=args.cuda, lr=0.001, train_emb=False,
-                               n_layers=1, clip=2.0, pretrained_emb=None, dropout=0.0, emb_drop=0.0,
+                               n_layers=1, clip=2.0, pretrained_emb=args.emb, dropout=0.0, emb_drop=0.0,
                                teacher_forcing_ratio=0.0)
 
     directory = os.path.join("trained_model", model.__class__.__name__)
@@ -291,9 +291,9 @@ if __name__ == '__main__':
                             help="""to use cuda """,
                             required=False, default=False, type=bool)
 
-    named_args.add_argument('-glove', '--glove', metavar='|',
-                            help="""to use glove embeddings """,
-                            required=False, default=False, type=bool)
+    named_args.add_argument('-emb', '--emb', metavar='|',
+                            help="""to use pretrained embeddings """,
+                            required=False, default=None, type=bool)
 
     named_args.add_argument('-intent', '--intent', metavar='|',
                             help="""Joint learning based on intent """,
