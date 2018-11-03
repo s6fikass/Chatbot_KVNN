@@ -18,7 +18,7 @@ import nltk
 N_EMBEDDING = 300
 BASE_STD = 0.01
 BATCH_SIZE = 512
-NUM_EPOCH = 10
+NUM_EPOCH = 100
 MIN_WORD_OCCURENCES = 1
 X_MAX = 100
 ALPHA = 0.75
@@ -81,7 +81,7 @@ class WordIndexer:
         return len(self.word_to_index)
 
     def fit_transform(self, texts):
-        l_words = [list(re.findall(r"[\w']+|[^\s\w']", ' '.join(re.split('_', sentence.lower())).replace(',', ' ').strip()))
+        l_words = [list(re.findall(r"[\w']+|[^\s\w']", ' '.join( sentence.lower()).replace(',', ' ').strip()))
                    for sentence in texts]
         word_occurrences = Counter(word for words in l_words for word in words)
 
@@ -194,17 +194,23 @@ if __name__ == "__main__":
     logging.info("Fetching data")
     #newsgroup = fetch_20newsgroups(data_home="data/glove_data",remove=('headers', 'footers', 'quotes'))
     logging.info("Build dataset")
-    with open('data/samples/train.csv', 'r') as myfile:
+    with open('data/samples/emb_in.txt', 'r') as myfile:
         data=myfile.readlines()
     glove_data = GloveDataset(data, right_window=RIGHT_WINDOW)
     logging.info("#Words: %s", glove_data.indexer.n_words)
     logging.info("#Ngrams: %s", len(glove_data))
     logging.info("Start training")
     train_model(glove_data)
-    print(glove_data.__getitem__(1))
-    for key, value in glove_data.indexer.index_to_word:
-        print(key)
-        print(value)
+
+    #print(type(glove_data.indexer.index_to_word))
+
+    with open('data/samples/jointEmbedding.txt', 'w') as myfile:
+
+        for key, value in glove_data.indexer.index_to_word.items():
+            myfile.write(value+" ")
+            myfile.write(' '.join(str(v) for v in list(glove_data.__getitem__(key))))
+            myfile.write("\n")
+
     #     myfile.write("%s\n" % var1)
     # glove_data.indexer.index_to_word[]
 

@@ -24,14 +24,37 @@
 # [0,0,0,0,0]  + [self.padToken] * (self.maxLengthDeco - len(batch.targetSeqs[i]))
 # print(list(np.ones(5)))
 # print(np.ones(5))
+
+from corpus.textdata import TextData
 #
-# from corpus.textdata import TextData
-# #
-# textdata = TextData("data/kvret_train_public.json","data/kvret_dev_public.json","data/kvret_test_public.json")
+textdata = TextData("data/kvret_train_public.json","data/kvret_dev_public.json","data/kvret_test_public.json")
 # batches = textdata.getBatches(1, valid=True, transpose=False)
 # print(textdata.sequence2str(batches[0].decoderSeqs[0]))
-x=5
-print(x/0)
+import numpy as np
+# import re
+# x=re.split(',' ,'p.f. changs'.lower())
+# for k in x:
+#     xz=" ".join(re.split('^.|(\d+)(?=[a-z]|\-)', k.strip()))
+#     zz=re.findall(r"[\w']+|[^\s\w']", xz)
+#     print("_".join(zz))
+import csv
+texts=[]
+for i in textdata.trainingSamples:
+    texts.append(textdata.sequence2str(i[0]).split())
+    texts.append(textdata.sequence2str(i[1]).split())
+
+for i in textdata.validationSamples:
+    texts.append(textdata.sequence2str(i[0]).split())
+    texts.append(textdata.sequence2str(i[1]).split())
+
+for i in textdata.testSamples:
+    texts.append(textdata.sequence2str(i[0]).split())
+    texts.append(textdata.sequence2str(i[1]).split())
+
+with open("data/samples/emb_in.txt", "w") as output:
+    writer = csv.writer(output, lineterminator='\n', delimiter =' ',quotechar =',',quoting=csv.QUOTE_MINIMAL)
+    writer.writerows(texts)
+
 # print (textdata.sequence2str(textdata.trainingSamples[0][0]))
 # print (textdata.sequence2str(textdata.trainingSamples[0][1]))
 # print (textdata.trainingSamples[0][2])

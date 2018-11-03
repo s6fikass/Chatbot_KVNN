@@ -452,10 +452,7 @@ class TextData:
             }
             pickle.dump(data, handle, -1)  # Using the highest protocol available
 
-
-
             with open("data/samples/train.csv", "w") as output:
-
                 writer = csv.writer(output, lineterminator='\n')
                 writer.writerows(self.txtTrainingSamples)
             with open("data/samples/valid.csv", "w") as output:
@@ -660,8 +657,8 @@ class TextData:
                     input_txt_conversation.append(inputLine['utterance'])
                     output_txt_conversation = targetLine['utterance']
 
-                    input_conversation.extend(self.extractText(inputLine['utterance'], conversation['kb']))
-                    output_conversation = self.extractText(targetLine['utterance'], conversation['kb'])
+                    input_conversation.extend(self.extractText(inputLine['utterance'], triples))
+                    output_conversation = self.extractText(targetLine['utterance'], triples)
 
 
 
@@ -693,26 +690,55 @@ class TextData:
             if line not in self.intent2id.keys():
                 self.intent2id[line] = len(self.intent2id)
                 self.id2intent[len(self.intent2id)-1] = line
+                self.getWordId(line.lower())
             return self.intent2id[line]
 
         if kb:
             triples = []
+            entities_property={}
             for triple in line:
                 entities=[]
                 for entity in triple:
-                    entity = ' '.join(re.split('(\d+)', entity)).strip()
-                    entities.append(self.getWordId(entity.lower()))
+                    x=entity
+                    if len(re.split(',', entity.lower())) >1:
+                        for i,k in enumerate(re.split(',', entity.lower())):
+
+                            processed_entity = "_".join(re.findall(r"[\w']+|[^\s\w']",
+                                                     " ".join(re.split('(\d+)(?=[a-z]|\-)',
+                                                                       k.strip()))))
+                            if len(entities) == 3:
+                                triples.append(entities[:])
+                                entities.pop()
+                                entities.append(self.getWordId(processed_entity.lower()))
+
+                                # entities_property[self.id2word[entities[0]]+i+self.id2word[entities[1]]] = \
+                                #     self.id2word[entities[3]]
+
+                            else:
+                                entities.append(self.getWordId(processed_entity.lower()))
+
+                    else:
+                        processed_entity = "_".join(re.findall(r"[\w']+|[^\s\w']",
+                                                               " ".join(re.split('(\d+)(?=[a-z]|\-)',
+                                                                                 entity.strip().lower()))))
+                        entities.append(self.getWordId(processed_entity.lower()))
+                #entities_property[entities[0]+'_'+entities[1]]=entities[2]
                 triples.append(entities)
+
+
             return triples
         else:
             line = line.lower()
             line = ' '.join(re.split('(\d+)(?=[a-z]|\-)', line)).strip()
+            line = ' '.join(re.findall(r"[\w']+|[^\s\w']",line))
             count = 0
             entities ={}
 
             for ki in triples:
-                if 'day' in ki[1].lower() and len(ki[2].lower().split(",")) > 1:
+                ki_text=self.sequence2str(ki).split()
+                if 'day' in ki_text[1].lower() and len(ki_text[2].lower().split(",")) > 1:
                     for kki in ki[2].lower().split(","):
+
                         if kki in re.findall(r"[\w']+|[^\s\w']", line):
                             if kki.strip() == ki[2].lower().split(",")[0]:
                                 count = count + 1
@@ -730,17 +756,25 @@ class TextData:
                                 line = re.sub("_entity_[0-9]_[a-z|']{1,}", "_entity_" + str(count) + "_", line)
                                 entities["_entity_"+str(count)+"_"] = kki.strip()
 
-                if ki[2].lower() in line:
-                    count = count + 1
-                    line = re.sub(ki[2].lower().strip(), "_entity_" + str(count) + "_", line)
-                    line = re.sub("_entity_[0-9]_[a-z|']{1,}", "_entity_" + str(count) + "_", line)
-                    entities["_entity_"+str(count)+"_"] = ki[2].lower().strip()
+                object = " ".join(ki_text[2].split('_'))
 
-                if ki[0].lower() in line:
+                if 'low of 70 f' in line:
+                    print(line)
+                    print(ki_text)
+
+                if object in line:
                     count = count + 1
-                    line = re.sub(ki[0].lower().strip(), "_entity_" + str(count) + "_", line)
+                    line = re.sub(object , "_entity_" + str(count) + "_", line)
                     line = re.sub("_entity_[0-9]_[a-z|']{1,}", "_entity_" + str(count) + "_", line)
-                    entities["_entity_"+str(count)+"_"] = ki[0].lower().strip()
+                    entities["_entity_"+str(count)+"_"] = ki_text[2]
+
+                subject = " ".join(ki_text[0].split('_'))
+
+                if subject in line:
+                    count = count + 1
+                    line = re.sub(subject, "_entity_" + str(count) + "_", line)
+                    line = re.sub("_entity_[0-9]_[a-z|']{1,}", "_entity_" + str(count) + "_", line)
+                    entities["_entity_"+str(count)+"_"] = ki_text[0]
 
 
 
