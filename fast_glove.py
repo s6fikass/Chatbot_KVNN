@@ -15,7 +15,7 @@ from tqdm import tqdm
 import nltk
 
 # Hyperparameters
-N_EMBEDDING = 300
+N_EMBEDDING = 200
 BASE_STD = 0.01
 BATCH_SIZE = 512
 NUM_EPOCH = 100
