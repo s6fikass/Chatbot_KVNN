@@ -682,7 +682,7 @@ class TextData:
                     output_conversation = self.extractText(targetLine['utterance'], triples)
                     out_with_intent = output_conversation[:]
 
-                    out_with_intent.append(self.word2id[self.id2intent[targetIntent]])
+                   # out_with_intent.append(self.word2id[self.id2intent[targetIntent]])
 
 
 
