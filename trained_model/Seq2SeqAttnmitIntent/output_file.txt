@@ -1,4 +1,0 @@
-
-Input : Where's the nearest parking_garage
-Predicted : <eos>, intent:schedule
-Target : <eos>, intent:navigate

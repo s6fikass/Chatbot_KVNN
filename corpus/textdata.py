@@ -264,7 +264,7 @@ class TextData:
                 batch.decoderSeqs.append([self.goToken] + sample[1][:len(sample[1])-1] + [self.eosToken]+ sample[1][len(sample[1])-1:])  # Add the <go> and <eos> tokens
             else:
                 batch.decoderSeqs.append(
-                    [self.goToken] + sample[1] + [self.eosToken])  # Add the <go> and <eos> tokens
+                    [self.goToken] + sample[1][:len(sample[1])-1] + [self.eosToken])  # Add the <go> and <eos> tokens
             batch.encoderMaskSeqs.append(list(np.ones(len(sample[0]))))
             batch.targetSeqs.append(batch.decoderSeqs[-1][1:])  # Same as decoder, but shifted to the left (ignore the <go>)
             batch.kb_inputs.append(sample[2])
