@@ -693,8 +693,7 @@ class Seq2SeqAttnmitIntent(nn.Module):
         )
 
         loss_function_2 = nn.CrossEntropyLoss()
-        print(intent_score)
-        print(intent_score.size())
+
         intent_loss = loss_function_2(intent_score, intent_output)
         loss = loss.add(2 * intent_loss.item())
 
