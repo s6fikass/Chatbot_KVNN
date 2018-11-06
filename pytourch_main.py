@@ -176,7 +176,7 @@ def main(args):
                     print(print_summary)
 
                     global_metric_score, individual_metric, moses_multi_bleu_score = \
-                        model.evaluate_model(textdata, test=True)
+                        model.evaluate_model(textdata, valid=True, test=args.test)
 
                     print("Model Bleu using corpus bleu: ", global_metric_score)
                     print("Model Bleu using sentence bleu: ", sum(individual_metric) / len(individual_metric))
@@ -236,7 +236,7 @@ def main(args):
         print('Model training complete.')
 
         global_metric_score, individual_metric, moses_multi_bleu_score = \
-            model.evaluate_model(textdata)
+            model.evaluate_model(textdata, test=args.test)
         print("Test Model Bleu using corpus bleu: ", global_metric_score)
         print("Test Model Bleu using sentence bleu: ", sum(individual_metric) / len(individual_metric))
         print("Test Model Bleu using moses_multi_bleu_score :", moses_multi_bleu_score)

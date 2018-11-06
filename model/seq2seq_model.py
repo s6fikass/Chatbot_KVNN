@@ -775,6 +775,8 @@ class Seq2SeqAttnmitIntent(nn.Module):
 
         if test:
             batches = data.getTestingBatch(self.batch_size)
+            output_file = open(os.path.join(os.path.join("trained_model", self.__class__.__name__), "output_file.txt"),
+                               "w")
         elif valid:
             batches = data.getBatches(self.batch_size, valid=True, transpose=False)
         else:
@@ -803,7 +805,7 @@ class Seq2SeqAttnmitIntent(nn.Module):
                 reference = data.sequence2str(batch.targetSeqs[i], clean=True)
                 batch_metric_score += nltk.translate.bleu_score.sentence_bleu([reference], predicted)
 
-                if not valid and not test:
+                if not valid and test:
                     output_file.write("\n"+"Input : " +
                                                 data.sequence2str(batch.encoderSeqs[i], clean=True))
 
@@ -829,8 +831,10 @@ class Seq2SeqAttnmitIntent(nn.Module):
         global_metric_score = nltk.translate.bleu_score.corpus_bleu(references, candidates)
 
         candidates2, references2 = data.get_candidates(target_batches, all_predicted, True)
-
-        moses_multi_bleu_score = moses_multi_bleu(candidates2,references2, True, os.path.join("trained_model", self.__class__.__name__))
+        if not valid and not test:
+            moses_multi_bleu_score = moses_multi_bleu(candidates2,references2, True, os.path.join("trained_model", self.__class__.__name__))
+        else:
+            moses_multi_bleu_score = moses_multi_bleu(candidates2, references2, True)
 
         return global_metric_score, individual_metric, moses_multi_bleu_score
 

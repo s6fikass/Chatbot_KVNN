@@ -124,7 +124,7 @@ class TextData:
             for i in range(self.getVocabularySize()):
                 i_embedding = self.word_to_embedding_dict[self.id2word[i]]
                 if sum(i_embedding) == 0 and len(self.id2word[i].split("_")) >1:
-                    print
+                    print(i_embedding)
                     for word in self.id2word[i].split("_"):
                         i_embedding+=self.word_to_embedding_dict[word]
                     emb_matrix[i] = i_embedding/ len(self.id2word[i].split("_"))
@@ -238,7 +238,7 @@ class TextData:
     #
     #     return batch
 
-    def createMyBatch(self, samples, transpose=True):
+    def createMyBatch(self, samples, transpose=True, additional_intent=False):
         """
         Args:
 
@@ -252,19 +252,16 @@ class TextData:
         #     print(samples[i][0])
 
         samples.sort(key=lambda x: len(x[0]), reverse=True)
-
-
         # Create the batch tensor
         for i in range(batchSize):
             # Unpack the sample
             sample = samples[i]
+
             batch.decoderMaskSeqs.append(list(np.ones(len(sample[1]) + 1)))
             batch.encoderSeqs.append(sample[0])  # Reverse inputs (and not outputs), little trick as defined on the original seq2seq paper
 
-            if len(sample[1])>0:
-
-                intent = sample[1].pop()
-                batch.decoderSeqs.append([self.goToken] + sample[1] + [self.eosToken]+ [intent])  # Add the <go> and <eos> tokens
+            if len(sample[1])>0 and additional_intent:
+                batch.decoderSeqs.append([self.goToken] + sample[1][:len(sample[1])-1] + [self.eosToken]+ sample[1][len(sample[1])-1:])  # Add the <go> and <eos> tokens
             else:
                 batch.decoderSeqs.append(
                     [self.goToken] + sample[1] + [self.eosToken])  # Add the <go> and <eos> tokens
