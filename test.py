@@ -38,22 +38,34 @@ import numpy as np
 #     zz=re.findall(r"[\w']+|[^\s\w']", xz)
 #     print("_".join(zz))
 import csv
+x=[1,3,4]
+y=x[:]
+x.append(5)
+a=x.pop()
+print(x)
+x.append(a)
+print(x)
 texts=[]
-for i in textdata.trainingSamples:
-    texts.append(textdata.sequence2str(i[0]).split())
-    texts.append(textdata.sequence2str(i[1]).split())
+b=textdata.getBatches(1,transpose=False)[0]
+print(b.targetSeqs)
+print(textdata.sequence2str(b.targetSeqs[0]))
+print(b.decoderMaskSeqs[0])
 
-for i in textdata.validationSamples:
-    texts.append(textdata.sequence2str(i[0]).split())
-    texts.append(textdata.sequence2str(i[1]).split())
-
-for i in textdata.testSamples:
-    texts.append(textdata.sequence2str(i[0]).split())
-    texts.append(textdata.sequence2str(i[1]).split())
-
-with open("data/samples/emb_in.txt", "w") as output:
-    writer = csv.writer(output, lineterminator='\n', delimiter =' ',quotechar =',',quoting=csv.QUOTE_MINIMAL)
-    writer.writerows(texts)
+# for i in textdata.trainingSamples:
+#     texts.append(textdata.sequence2str(i[0]).split())
+#     texts.append(textdata.sequence2str(i[1]).split())
+#
+# for i in textdata.validationSamples:
+#     texts.append(textdata.sequence2str(i[0]).split())
+#     texts.append(textdata.sequence2str(i[1]).split())
+#
+# for i in textdata.testSamples:
+#     texts.append(textdata.sequence2str(i[0]).split())
+#     texts.append(textdata.sequence2str(i[1]).split())
+#
+# with open("data/samples/emb_in.txt", "w") as output:
+#     writer = csv.writer(output, lineterminator='\n', delimiter =' ',quotechar =',',quoting=csv.QUOTE_MINIMAL)
+#     writer.writerows(texts)
 
 # print (textdata.sequence2str(textdata.trainingSamples[0][0]))
 # print (textdata.sequence2str(textdata.trainingSamples[0][1]))

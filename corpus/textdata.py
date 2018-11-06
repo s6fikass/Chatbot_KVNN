@@ -241,10 +241,17 @@ class TextData:
         for i in range(batchSize):
             # Unpack the sample
             sample = samples[i]
+            batch.decoderMaskSeqs.append(list(np.ones(len(sample[1]) + 1)))
             batch.encoderSeqs.append(sample[0])  # Reverse inputs (and not outputs), little trick as defined on the original seq2seq paper
-            batch.decoderSeqs.append([self.goToken] + sample[1] + [self.eosToken])  # Add the <go> and <eos> tokens
+
+            if len(sample[1])>0:
+
+                intent = sample[1].pop()
+                batch.decoderSeqs.append([self.goToken] + sample[1] + [self.eosToken]+ [intent])  # Add the <go> and <eos> tokens
+            else:
+                batch.decoderSeqs.append(
+                    [self.goToken] + sample[1] + [self.eosToken])  # Add the <go> and <eos> tokens
             batch.encoderMaskSeqs.append(list(np.ones(len(sample[0]))))
-            batch.decoderMaskSeqs.append(list(np.ones(len(sample[1])+1)))
             batch.targetSeqs.append(batch.decoderSeqs[-1][1:])  # Same as decoder, but shifted to the left (ignore the <go>)
             batch.kb_inputs.append(sample[2])
             batch.seqIntent.append(sample[3])
@@ -659,17 +666,21 @@ class TextData:
 
                     input_conversation.extend(self.extractText(inputLine['utterance'], triples))
                     output_conversation = self.extractText(targetLine['utterance'], triples)
+                    out_with_intent = output_conversation[:]
+
+                    out_with_intent.append(self.word2id[self.id2intent[targetIntent]])
+
 
 
 
                 if not valid and not test:  # Filter wrong samples (if one of the list is empty)
                     if truncate and ( len(input_conversation[:]) >= 40 or len(output_conversation[:]) >= 40) :
                     # truncate if too long
-                        self.trainingSamples.append([input_conversation[len(input_conversation) - 40:], output_conversation[:40], triples,targetIntent])
-                        self.txtTrainingSamples.append([np.array2string(np.array(input_txt_conversation[:]).flatten()).strip("]").strip("["), output_txt_conversation,targetIntent])
+                        self.trainingSamples.append([input_conversation[len(input_conversation) - 40:], out_with_intent[:40], triples,targetIntent])
+                        self.txtTrainingSamples.append([np.array2string(np.array(input_txt_conversation[:]).flatten()).strip("]").strip("["), self.sequence2str(out_with_intent[:]),targetIntent])
                     else:
-                        self.trainingSamples.append([input_conversation[:], output_conversation[:], triples,targetIntent])
-                        self.txtTrainingSamples.append([self.sequence2str(input_conversation[:]), self.sequence2str(output_conversation[:]),self.id2intent[targetIntent]])
+                        self.trainingSamples.append([input_conversation[:], out_with_intent[:], triples,targetIntent])
+                        self.txtTrainingSamples.append([self.sequence2str(input_conversation[:]), self.sequence2str(out_with_intent[:]),self.id2intent[targetIntent]])
                 elif valid:
                     if truncate and (len(input_conversation[:]) >= 40 or len(output_conversation[:]) >= 40):
                         self.validationSamples.append([input_conversation[len(input_conversation) - 40:], output_conversation[:40], triples,targetIntent])
@@ -758,9 +769,9 @@ class TextData:
 
                 object = " ".join(ki_text[2].split('_'))
 
-                if 'low of 70 f' in line:
-                    print(line)
-                    print(ki_text)
+                # if 'low of 70 f' in line:
+                #     print(line)
+                #     print(ki_text)
 
                 if object in line:
                     count = count + 1

@@ -135,6 +135,7 @@ class Attn(torch.nn.Module):
         # Return the softmax normalized probability scores (with added dimension)
         return F.softmax(attn_energies, dim=1).unsqueeze(1)
 
+
 class Attention(nn.Module):
     """
     Attention mechanism (Luong)
@@ -188,7 +189,7 @@ class LuongAttnDecoderRNN(nn.Module):
 
         self.concat = nn.Linear(hidden_size * 2, hidden_size)
         self.out = nn.Linear(hidden_size, output_size)
-        self.intent_out = nn.Linear(self.hidden_size * 2, self.intent_size)
+        self.intent_out = nn.Linear(self.hidden_size , self.intent_size)
 
         # Choose attention model
         if attn_model != 'none':
@@ -229,10 +230,10 @@ class LuongAttnDecoderRNN(nn.Module):
             intent_hidden = hidden[0].clone()
             # print("intent_intent_hidden", intent_hidden.shape)
 
-            intent_attn_weights= self.intent_attn(intent_hidden, encoder_outputs)
-            intent_context = intent_attn_weights.bmm(encoder_outputs.transpose(0, 1))
-            concated = torch.cat((intent_hidden, intent_context.transpose(0, 1)), 2)  # 1,B,D
-            intent_score = self.intent_out(concated.squeeze(0))  # B,D
+            # intent_attn_weights= self.intent_attn(intent_hidden, encoder_outputs)
+            # intent_context = intent_attn_weights.bmm(encoder_outputs.transpose(0, 1))
+            # concated = torch.cat((intent_hidden, intent_context.transpose(0, 1)), 2)  # 1,B,D
+            intent_score = self.intent_out(last_hidden[-1].squeeze(0))#concated.squeeze(0))  # B,D
 
         s_t = hidden[0][-1].unsqueeze(0)
         alpha, context = self.attention(encoder_outputs.transpose(0,1), s_t, inp_mask)
@@ -692,6 +693,8 @@ class Seq2SeqAttnmitIntent(nn.Module):
         )
 
         loss_function_2 = nn.CrossEntropyLoss()
+        print(intent_score)
+        print(intent_score.size())
         intent_loss = loss_function_2(intent_score, intent_output)
         loss = loss.add(2 * intent_loss.item())
 
