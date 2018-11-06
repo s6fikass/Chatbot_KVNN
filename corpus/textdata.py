@@ -113,6 +113,7 @@ class TextData:
         self.maxTriples = self.getMaxTriples()
         # Plot some stats:
         self._printStats()
+        self.pretrained_emb =None
 
         if useGlove:
             print("Loading Glove embedding from disks...")
