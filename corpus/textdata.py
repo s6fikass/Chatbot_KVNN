@@ -66,7 +66,7 @@ class TextData:
         """
         return list(TextData.availableCorpus.keys())
 
-    def __init__(self,dataFile, validFile, testFile, useGlove = False):
+    def __init__(self,dataFile, validFile, testFile, useGlove = None):
         """Load all conversations
         Args:
             args: parameters of the model
@@ -74,7 +74,7 @@ class TextData:
         # Model parameters
         self.vocabularySize = 0
         self.corpus = 'kvret'
-        self.glove_fileName="data/glove_data/glove.840B.300d.txt"
+        self.glove_fileName = useGlove # "data/glove_data/jointEmbedding.txt"
 
         # Path variables
         self.corpusDir = os.path.join(dataFile)
@@ -97,10 +97,6 @@ class TextData:
         self.validationSamples = []
         self.testSamples = []
 
-        if useGlove:
-            print("Loading Glove embedding from disks...")
-            self.word_to_embedding_dict = self.load_embedding_from_disks(self.glove_fileName)
-            print("Glove Embedding loaded from disks.")
 
 
         self.word2id = {}
@@ -117,6 +113,19 @@ class TextData:
         self.maxTriples = self.getMaxTriples()
         # Plot some stats:
         self._printStats()
+
+        if useGlove:
+            print("Loading Glove embedding from disks...")
+            self.word_to_embedding_dict = self.load_embedding_from_disks(self.glove_fileName)
+            embedding_size = len(self.word_to_embedding_dict.get("<pad>"))
+            emb_matrix = np.zeros([self.getVocabularySize(), embedding_size], int)
+
+            for i in range(self.getVocabularySize()):
+                emb_matrix[i] = self.word_to_embedding_dict[self.id2word[i]]
+
+            self.pretrained_emb = torch.from_numpy(emb_matrix)
+
+            print("Glove Embedding loaded from disks.")
 
         # if self.playDataset:
         #     self.playDataset()

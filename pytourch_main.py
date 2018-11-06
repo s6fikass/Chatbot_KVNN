@@ -45,7 +45,11 @@ def main(args):
     train_file = 'data/kvret_train_public.json'
     valid_file = 'data/kvret_dev_public.json'
     test_file = 'data/kvret_test_public.json'
-    textdata = TextData(train_file, valid_file, test_file)
+    if args.emb:
+        textdata = TextData(train_file, valid_file, test_file, args.emb)
+    else:
+        textdata = TextData(train_file, valid_file, test_file)
+
     args.data = textdata
 
     print('Datasets Loaded.')
@@ -62,7 +66,7 @@ def main(args):
     n_epochs = args.epochs
     epoch = 0
     plot_every = 20
-    evaluate_every = 10
+    evaluate_every = 30
     avg_best_metric = 0
     save_every = 5
 
@@ -74,7 +78,7 @@ def main(args):
         model = Seq2SeqmitAttn(hidden_size, textdata.getTargetMaxLength(), textdata.getVocabularySize(),
                                args.batch_size, hidden_size, textdata.word2id['<go>'], textdata.word2id['<eos>'],
                                None, gpu=args.cuda, lr=0.001, train_emb=False,
-                               n_layers=1, clip=2.0, pretrained_emb=args.emb, dropout=0.0, emb_drop=0.0,
+                               n_layers=1, clip=2.0, pretrained_emb=textdata.pretrained_emb, dropout=0.0, emb_drop=0.0,
                                teacher_forcing_ratio=0.0)
 
     directory = os.path.join("trained_model", model.__class__.__name__)
@@ -293,7 +297,7 @@ if __name__ == '__main__':
 
     named_args.add_argument('-emb', '--emb', metavar='|',
                             help="""to use pretrained embeddings """,
-                            required=False, default=None, type=bool)
+                            required=False, default=None, type=str)
 
     named_args.add_argument('-intent', '--intent', metavar='|',
                             help="""Joint learning based on intent """,

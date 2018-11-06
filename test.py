@@ -27,7 +27,7 @@
 
 from corpus.textdata import TextData
 #
-textdata = TextData("data/kvret_train_public.json","data/kvret_dev_public.json","data/kvret_test_public.json")
+textdata = TextData("data/kvret_train_public.json","data/kvret_dev_public.json","data/kvret_test_public.json",True)
 # batches = textdata.getBatches(1, valid=True, transpose=False)
 # print(textdata.sequence2str(batches[0].decoderSeqs[0]))
 import numpy as np
@@ -38,18 +38,18 @@ import numpy as np
 #     zz=re.findall(r"[\w']+|[^\s\w']", xz)
 #     print("_".join(zz))
 import csv
-x=[1,3,4]
-y=x[:]
-x.append(5)
-a=x.pop()
-print(x)
-x.append(a)
-print(x)
-texts=[]
-b=textdata.getBatches(1,transpose=False)[0]
-print(b.targetSeqs)
-print(textdata.sequence2str(b.targetSeqs[0]))
-print(b.decoderMaskSeqs[0])
+# x=[1,3,4]
+# y=x[:]
+# x.append(5)
+# a=x.pop()
+# print(x)
+# x.append(a)
+# print(x)
+# texts=[]
+# b=textdata.getBatches(1,transpose=False)[0]
+# print(b.targetSeqs)
+# print(textdata.sequence2str(b.targetSeqs[0]))
+# print(b.decoderMaskSeqs[0])
 
 # for i in textdata.trainingSamples:
 #     texts.append(textdata.sequence2str(i[0]).split())
