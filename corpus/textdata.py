@@ -121,7 +121,14 @@ class TextData:
             emb_matrix = np.zeros([self.getVocabularySize(), embedding_size], int)
 
             for i in range(self.getVocabularySize()):
-                emb_matrix[i] = self.word_to_embedding_dict[self.id2word[i]]
+                i_embedding = self.word_to_embedding_dict[self.id2word[i]]
+                if sum(i_embedding) == 0 and len(self.id2word[i].split("_")) >1:
+                    print
+                    for word in self.id2word[i].split("_"):
+                        i_embedding+=self.word_to_embedding_dict[word]
+                    emb_matrix[i] = i_embedding/ len(self.id2word[i].split("_"))
+                else:
+                    emb_matrix[i] = i_embedding
 
             self.pretrained_emb = torch.from_numpy(emb_matrix)
 

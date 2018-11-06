@@ -579,7 +579,7 @@ class Seq2SeqAttnmitIntent(nn.Module):
         Sequence to sequence model with Luong Attention
         """
     def __init__(self,  attn_model, hidden_size, input_size, output_size, batch_size, sos_tok, eso_tok, n_layers=1, dropout=0.1,
-                 intent_size=3, lr=0.001, decoder_learning_ratio = 5.0, clip=2.0, teacher_forcing_ratio=1, gpu=False):
+                 intent_size=3, lr=0.001, decoder_learning_ratio = 5.0,pretrained_emb=None, clip=50.0, teacher_forcing_ratio=1, gpu=False):
         super(Seq2SeqAttnmitIntent, self).__init__()
 
         self.name = "LuongSeq2Seq"
