@@ -64,7 +64,7 @@ def main(args):
     n_epochs = args.epochs
     epoch = 0
     plot_every = 20
-    evaluate_every = 10
+    evaluate_every = 30
     avg_best_metric = 0
     save_every = 5
 
@@ -187,11 +187,15 @@ def main(args):
 
                     if bleu > avg_best_metric:
                         avg_best_metric = bleu
+
+                        print('Saving Model.')
+                        torch.save(model.state_dict(), os.path.join(directory, '{}_{}.bin'.format(epoch, str(bleu))))
+
                         cnt = 0
                     else:
                         cnt += 1
 
-                    if cnt == 5: break
+                    if cnt == 20: break
 
                 # if epoch % plot_every == 0:
                 #
@@ -240,9 +244,6 @@ def main(args):
         print("Test Model Bleu using corpus bleu: ", global_metric_score)
         print("Test Model Bleu using sentence bleu: ", sum(individual_metric) / len(individual_metric))
         print("Test Model Bleu using moses_multi_bleu_score :", moses_multi_bleu_score)
-
-        print('Saving Model.')
-        torch.save(model.state_dict(), os.path.join(directory,'{}.bin'.format(epoch)))
 
 
 if __name__ == '__main__':

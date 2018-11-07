@@ -24,10 +24,10 @@
 # [0,0,0,0,0]  + [self.padToken] * (self.maxLengthDeco - len(batch.targetSeqs[i]))
 # print(list(np.ones(5)))
 # # print(np.ones(5))
+
+from corpus.textdata import TextData
 #
-# from corpus.textdata import TextData
-# #
-# textdata = TextData("data/kvret_train_public.json","data/kvret_dev_public.json","data/kvret_test_public.json")
+textdata = TextData("data/kvret_train_public.json","data/kvret_dev_public.json","data/kvret_test_public.json")
 
 # batches = textdata.getBatches(1, valid=True, transpose=False)
 # print(textdata.sequence2str(batches[0].decoderSeqs[0]))
@@ -39,11 +39,7 @@ import numpy as np
 #     zz=re.findall(r"[\w']+|[^\s\w']", xz)
 #     print("_".join(zz))
 import csv
-x=[[1,2,0],3,4]
-y=x[0][:len(x[0])-1]
-z=x[0][len(x[0])-1:]
-print(y)
-print(z)
+
 # x.append(5)
 # a=x.pop()
 # print(x)

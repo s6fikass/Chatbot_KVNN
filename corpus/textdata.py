@@ -680,7 +680,7 @@ class TextData:
 
                     input_conversation.extend(self.extractText(inputLine['utterance'], triples))
                     output_conversation = self.extractText(targetLine['utterance'], triples)
-                    out_with_intent = output_conversation[:]
+                    out_with_intent = output_conversation
 
                    # out_with_intent.append(self.word2id[self.id2intent[targetIntent]])
 
@@ -715,7 +715,7 @@ class TextData:
             if line not in self.intent2id.keys():
                 self.intent2id[line] = len(self.intent2id)
                 self.id2intent[len(self.intent2id)-1] = line
-                self.getWordId(line.lower())
+#                self.getWordId(line.lower())
             return self.intent2id[line]
 
         if kb:
@@ -724,9 +724,8 @@ class TextData:
             for triple in line:
                 entities=[]
                 for entity in triple:
-                    x=entity
                     if len(re.split(',', entity.lower())) >1:
-                        for i,k in enumerate(re.split(',', entity.lower())):
+                        for i, k in enumerate(re.split(',', entity.lower())):
 
                             processed_entity = "_".join(re.findall(r"[\w']+|[^\s\w']",
                                                      " ".join(re.split('(\d+)(?=[a-z]|\-)',
@@ -750,42 +749,18 @@ class TextData:
                 #entities_property[entities[0]+'_'+entities[1]]=entities[2]
                 triples.append(entities)
 
-
             return triples
         else:
             line = line.lower()
             line = ' '.join(re.split('(\d+)(?=[a-z]|\-)', line)).strip()
-            line = ' '.join(re.findall(r"[\w']+|[^\s\w']",line))
+            line = ' '.join(re.findall(r"[\w']+|[^\s\w']", line))
             count = 0
             entities ={}
 
             for ki in triples:
                 ki_text=self.sequence2str(ki).split()
-                if 'day' in ki_text[1].lower() and len(ki_text[2].lower().split(",")) > 1:
-                    for kki in ki[2].lower().split(","):
-
-                        if kki in re.findall(r"[\w']+|[^\s\w']", line):
-                            if kki.strip() == ki[2].lower().split(",")[0]:
-                                count = count + 1
-                                line = re.sub(kki.strip(), "_entity_"+str(count)+"_", line)
-                                line = re.sub("_entity_[0-9]_[a-z|']{1,}", "_entity_" + str(count) + "_", line)
-                                entities["_entity_"+str(count)+"_"]=kki.strip()
-                            if kki.strip() == ki[2].lower().split(",")[1]:
-                                count = count + 1
-                                line = re.sub(kki.strip(), "_entity_" + str(count) + "_", line)
-                                line = re.sub("_entity_[0-9]_[a-z|']{1,}", "_entity_" + str(count) + "_", line)
-                                entities["_entity_"+str(count)+"_"] = kki.strip()
-                            if kki.strip() == ki[2].lower().split(",")[2]:
-                                count = count + 1
-                                line = re.sub(kki.strip(), "_entity_" + str(count) + "_", line)
-                                line = re.sub("_entity_[0-9]_[a-z|']{1,}", "_entity_" + str(count) + "_", line)
-                                entities["_entity_"+str(count)+"_"] = kki.strip()
 
                 object = " ".join(ki_text[2].split('_'))
-
-                # if 'low of 70 f' in line:
-                #     print(line)
-                #     print(ki_text)
 
                 if object in line:
                     count = count + 1
@@ -800,9 +775,6 @@ class TextData:
                     line = re.sub(subject, "_entity_" + str(count) + "_", line)
                     line = re.sub("_entity_[0-9]_[a-z|']{1,}", "_entity_" + str(count) + "_", line)
                     entities["_entity_"+str(count)+"_"] = ki_text[0]
-
-
-
 
             sentences = []  # List[List[str]]
             # Extract sentences
