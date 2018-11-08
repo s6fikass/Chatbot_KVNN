@@ -161,7 +161,7 @@ class Attention(nn.Module):
         a = F.softmax(energy,dim=0) * inp_mask.transpose(0, 1)  # B X T
         normalization_factor = a.sum(1, keepdim=True)
         a = a / (normalization_factor + self.epsilon)  # adding a small offset to avoid nan values
-
+        aaa= a/self.epsilon
         a = a.unsqueeze(1)
         context = a.bmm(encoder_outputs)
 
@@ -545,8 +545,8 @@ class Seq2SeqmitAttn(nn.Module):
 
             batch_metric_score = 0
             for i, sen in enumerate(batch_predictions):
-                predicted = data.sequence2str(sen.cpu().numpy())
-                reference = data.sequence2str(batch.targetSeqs[i])
+                predicted = data.sequence2str(sen.cpu().numpy(), clean=True)
+                reference = data.sequence2str(batch.targetSeqs[i], clean=True)
                 batch_metric_score += nltk.translate.bleu_score.sentence_bleu([reference], predicted)
 
             print("Predicted : ", data.sequence2str(batch_predictions[0].cpu().numpy(), clean=True))

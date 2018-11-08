@@ -45,10 +45,7 @@ def main(args):
     train_file = 'data/kvret_train_public.json'
     valid_file = 'data/kvret_dev_public.json'
     test_file = 'data/kvret_test_public.json'
-    if args.emb:
-        textdata = TextData(train_file, valid_file, test_file, args.emb)
-    else:
-        textdata = TextData(train_file, valid_file, test_file)
+    textdata = TextData(train_file, valid_file, test_file, args.emb)
 
     args.data = textdata
 
@@ -72,12 +69,12 @@ def main(args):
     if args.intent:
         model = Seq2SeqAttnmitIntent(attn_model, hidden_size,textdata.getVocabularySize(), textdata.getVocabularySize(),
                                  args.batch_size, textdata.word2id['<go>'], textdata.word2id['<eos>'], gpu=args.cuda,
-                                     clip=25.0, lr=0.01, pretrained_emb=textdata.pretrained_emb, dropout=0.0)
+                                     clip=50.0, lr=0.00001, pretrained_emb=textdata.pretrained_emb, dropout=0.0)
     else:
         model = Seq2SeqmitAttn(hidden_size, textdata.getTargetMaxLength(), textdata.getVocabularySize(),
                                args.batch_size, hidden_size, textdata.word2id['<go>'], textdata.word2id['<eos>'],
-                               None, gpu=args.cuda, lr=0.01, train_emb=False,
-                               n_layers=1, clip=25.0, pretrained_emb=textdata.pretrained_emb, dropout=0.0, emb_drop=0.0,
+                               None, gpu=args.cuda, lr=0.00001, train_emb=False,
+                               n_layers=1, clip=50.0, pretrained_emb=textdata.pretrained_emb, dropout=0.0, emb_drop=0.0,
                                teacher_forcing_ratio=0.0)
 
     directory = os.path.join("trained_model", model.__class__.__name__)
