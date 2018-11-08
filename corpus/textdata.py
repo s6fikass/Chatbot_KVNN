@@ -257,20 +257,22 @@ class TextData:
             # Unpack the sample
             sample = samples[i]
 
-            batch.decoderMaskSeqs.append(list(np.ones(len(sample[1]) + 1)))
+            #batch.decoderMaskSeqs.append(list(np.ones(len(sample[1]) + 1)))
             batch.encoderSeqs.append(sample[0])  # Reverse inputs (and not outputs), little trick as defined on the original seq2seq paper
-
+            #
             # if len(sample[1])>0 and additional_intent:
             #     batch.decoderSeqs.append([self.goToken] + sample[1][:len(sample[1])-1] + [self.eosToken]+ sample[1][len(sample[1])-1:])  # Add the <go> and <eos> tokens
             # else:
-            batch.decoderSeqs.append([self.goToken] + sample[1] + [self.eosToken])  # Add the <go> and <eos> tokens
+            batch.decoderSeqs.append( [self.goToken] + sample[1] + [self.eosToken])  # Add the <go> and <eos> tokens
+            batch.decoderMaskSeqs.append(list(np.ones(len(sample[1]) + 1)))
+            batch.targetSeqs.append(
+                batch.decoderSeqs[-1][1:])  # Same as decoder, but shifted to the left (ignore the <go>)
             batch.encoderMaskSeqs.append(list(np.ones(len(sample[0]))))
-            batch.targetSeqs.append(batch.decoderSeqs[-1][1:])  # Same as decoder, but shifted to the left (ignore the <go>)
             batch.kb_inputs.append(sample[2])
             batch.seqIntent.append(sample[3])
 
             batch.encoderSeqsLen.append(len(sample[0]))
-            batch.decoderSeqsLen.append(len(sample[1])+2)
+            batch.decoderSeqsLen.append(len(sample[1])+1)
 
             if len(batch.encoderSeqs[i]) > self.maxLengthEnco:
                 batch.encoderSeqs[i]= batch.encoderSeqs[i][self.maxLengthEnco:]
@@ -748,11 +750,12 @@ class TextData:
                 #entities_property[entities[0]+'_'+entities[1]]=entities[2]
                 triples.append(entities)
 
+
             return triples
         else:
             line = line.lower()
             line = ' '.join(re.split('(\d+)(?=[a-z]|\-)', line)).strip()
-            line = ' '.join(re.findall(r"[\w']+|[^\s\w']", line))
+            line = ' '.join(re.findall(r"[\w']+|[^\s\w']",line))
             count = 0
             entities ={}
 
@@ -774,6 +777,9 @@ class TextData:
                     line = re.sub(subject, "_entity_" + str(count) + "_", line)
                     line = re.sub("_entity_[0-9]_[a-z|']{1,}", "_entity_" + str(count) + "_", line)
                     entities["_entity_"+str(count)+"_"] = ki_text[0]
+
+
+
 
             sentences = []  # List[List[str]]
             # Extract sentences
