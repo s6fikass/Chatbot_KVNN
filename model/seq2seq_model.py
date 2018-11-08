@@ -148,7 +148,7 @@ class Attention(nn.Module):
         self.v = nn.Parameter(torch.rand(hidden_size))
         stdv = 1. / math.sqrt(self.v.size(0))
         self.v.data.normal_(mean=0, std=stdv)
-        self.epsilon = 1e-10
+        self.epsilon = 1e-5
 
     def forward(self, encoder_outputs, decoder_hidden, inp_mask):
         seq_len = encoder_outputs.size(1)  # get sequence lengths S
