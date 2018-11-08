@@ -195,7 +195,7 @@ def main(args):
                     else:
                         cnt += 1
 
-                    if cnt == 20:
+                    if cnt == 100: break
 
                 # if epoch % plot_every == 0:
                 #
