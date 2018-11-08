@@ -260,11 +260,10 @@ class TextData:
             batch.decoderMaskSeqs.append(list(np.ones(len(sample[1]) + 1)))
             batch.encoderSeqs.append(sample[0])  # Reverse inputs (and not outputs), little trick as defined on the original seq2seq paper
 
-            if len(sample[1])>0 and additional_intent:
-                batch.decoderSeqs.append([self.goToken] + sample[1][:len(sample[1])-1] + [self.eosToken]+ sample[1][len(sample[1])-1:])  # Add the <go> and <eos> tokens
-            else:
-                batch.decoderSeqs.append(
-                    [self.goToken] + sample[1][:len(sample[1])-1] + [self.eosToken])  # Add the <go> and <eos> tokens
+            # if len(sample[1])>0 and additional_intent:
+            #     batch.decoderSeqs.append([self.goToken] + sample[1][:len(sample[1])-1] + [self.eosToken]+ sample[1][len(sample[1])-1:])  # Add the <go> and <eos> tokens
+            # else:
+            batch.decoderSeqs.append([self.goToken] + sample[1] + [self.eosToken])  # Add the <go> and <eos> tokens
             batch.encoderMaskSeqs.append(list(np.ones(len(sample[0]))))
             batch.targetSeqs.append(batch.decoderSeqs[-1][1:])  # Same as decoder, but shifted to the left (ignore the <go>)
             batch.kb_inputs.append(sample[2])
