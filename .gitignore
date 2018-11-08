@@ -1,5 +1,2 @@
 .idea/
 *.pyc
-data/samples
-!data/samples/init
-!data/samples/jointEmbedding.txt
