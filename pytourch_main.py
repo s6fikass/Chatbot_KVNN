@@ -64,7 +64,7 @@ def main(args):
     n_epochs = args.epochs
     epoch = 0
     plot_every = 20
-    evaluate_every = 30
+    evaluate_every = 10
     avg_best_metric = 0
     save_every = 5
 
@@ -72,11 +72,11 @@ def main(args):
     if args.intent:
         model = Seq2SeqAttnmitIntent(attn_model, hidden_size,textdata.getVocabularySize(), textdata.getVocabularySize(),
                                  args.batch_size, textdata.word2id['<go>'], textdata.word2id['<eos>'], gpu=args.cuda,
-                                     clip=50.0, lr=0.001, pretrained_emb=textdata.pretrained_emb, dropout=0.0)
+                                     clip=2.0, lr=0.01, pretrained_emb=textdata.pretrained_emb, dropout=0.0)
     else:
         model = Seq2SeqmitAttn(hidden_size, textdata.getTargetMaxLength(), textdata.getVocabularySize(),
                                args.batch_size, hidden_size, textdata.word2id['<go>'], textdata.word2id['<eos>'],
-                               None, gpu=args.cuda, lr=0.001, train_emb=False,
+                               None, gpu=args.cuda, lr=0.01, train_emb=False,
                                n_layers=1, clip=2.0, pretrained_emb=textdata.pretrained_emb, dropout=0.0, emb_drop=0.0,
                                teacher_forcing_ratio=0.0)
 
@@ -195,7 +195,7 @@ def main(args):
                     else:
                         cnt += 1
 
-                    if cnt == 20: break
+                    if cnt == 20:
 
                 # if epoch % plot_every == 0:
                 #
@@ -253,7 +253,7 @@ if __name__ == '__main__':
 
     named_args.add_argument('-e', '--epochs', metavar='|',
                             help="""Number of Epochs to Run""",
-                            required=False, default=1500, type=int)
+                            required=False, default=1000, type=int)
 
     named_args.add_argument('-es', '--embedding', metavar='|',
                             help="""Size of the embedding""",
