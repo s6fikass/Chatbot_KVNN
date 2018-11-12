@@ -189,7 +189,7 @@ class LuongAttnDecoderRNN(nn.Module):
 
         self.concat = nn.Linear(hidden_size * 2, hidden_size)
         self.out = nn.Linear(hidden_size, output_size)
-        self.intent_out = nn.Linear(self.hidden_size*2 , self.intent_size)
+        self.intent_out = nn.Linear(self.hidden_size , self.intent_size)
 
         # Choose attention model
         if attn_model != 'none':
