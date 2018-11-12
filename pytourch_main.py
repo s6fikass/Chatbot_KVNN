@@ -69,11 +69,11 @@ def main(args):
     if args.intent:
         model = Seq2SeqAttnmitIntent(attn_model, hidden_size,textdata.getVocabularySize(), textdata.getVocabularySize(),
                                  args.batch_size, textdata.word2id['<go>'], textdata.word2id['<eos>'], gpu=args.cuda,
-                                     clip=50.0, lr=0.00001, pretrained_emb=textdata.pretrained_emb, dropout=0.0)
+                                     clip=50.0, lr=0.001, pretrained_emb=textdata.pretrained_emb, dropout=0.0)
     else:
         model = Seq2SeqmitAttn(hidden_size, textdata.getTargetMaxLength(), textdata.getVocabularySize(),
                                args.batch_size, hidden_size, textdata.word2id['<go>'], textdata.word2id['<eos>'],
-                               None, gpu=args.cuda, lr=0.00001, train_emb=False,
+                               None, gpu=args.cuda, lr=0.0001, train_emb=False,
                                n_layers=1, clip=50.0, pretrained_emb=textdata.pretrained_emb, dropout=0.0, emb_drop=0.0,
                                teacher_forcing_ratio=0.0)
 

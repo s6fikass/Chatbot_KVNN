@@ -789,6 +789,7 @@ class TextData:
             for i in range(len(sentencesToken)):
                 if sentencesToken[i] in entities:
                     token = '_'.join(re.split(" ", entities[sentencesToken[i]]))
+                    print(token)
                     sentences.append(self.getWordId(token))
                 else:
                     token = sentencesToken[i].strip(",").strip(".").strip(":").strip("?").\
