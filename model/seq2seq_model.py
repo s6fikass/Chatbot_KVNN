@@ -233,6 +233,7 @@ class LuongAttnDecoderRNN(nn.Module):
             intent_attn_weights= self.intent_attn(intent_hidden, encoder_outputs)
             intent_context = intent_attn_weights.bmm(encoder_outputs.transpose(0, 1))
             concated = torch.cat((intent_hidden, intent_context.transpose(0, 1)), 2)  # 1,B,D
+            print("concated",concated.shape)
             intent_score = self.intent_out(concated.squeeze(0))#last_hidden[-1].squeeze(0))#  # B,D
 
         s_t = hidden[0][-1].unsqueeze(0)
