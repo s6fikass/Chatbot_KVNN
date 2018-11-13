@@ -640,7 +640,7 @@ class TextData:
         input_txt_conversation = []
         output_txt_conversation = []
         triples = self.extractText(conversation['kb'], kb=True)
-        targetIntent = self.extractText(conversation['intent'],intent=True)
+        targetIntent = self.extractText(conversation['intent'], intent=True)
         for i in tqdm_wrap(
             range(0, len(conversation['lines']) - 1, step),  # We ignore the last line (no answer for it)
             desc='Conversation',

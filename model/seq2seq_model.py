@@ -227,13 +227,13 @@ class LuongAttnDecoderRNN(nn.Module):
             #     intent_hidden = new_hidden.cuda()
             # else:
             #     intent_hidden = new_hidden
-            # intent_hidden = hidden[0].clone()
+            intent_hidden = hidden[0].clone()
             # print("intent_intent_hidden", intent_hidden.shape)
 
-            # intent_attn_weights= self.intent_attn(intent_hidden, encoder_outputs)
-            # intent_context = intent_attn_weights.bmm(encoder_outputs.transpose(0, 1))
-            # concated = torch.cat((intent_hidden, intent_context.transpose(0, 1)), 2)  # 1,B,D
-            intent_score = self.intent_out(last_hidden[-1].squeeze(0))#concated.squeeze(0))  # B,D
+            intent_attn_weights= self.intent_attn(intent_hidden, encoder_outputs)
+            intent_context = intent_attn_weights.bmm(encoder_outputs.transpose(0, 1))
+            concated = torch.cat((intent_hidden, intent_context.transpose(0, 1)), 2)  # 1,B,D
+            intent_score = self.intent_out(concated.squeeze(0))#last_hidden[-1].squeeze(0))#  # B,D
 
         s_t = hidden[0][-1].unsqueeze(0)
         alpha, context = self.attention(encoder_outputs.transpose(0,1), s_t, inp_mask)
