@@ -805,7 +805,7 @@ class Seq2SeqAttnmitIntent(nn.Module):
                 reference = data.sequence2str(batch.targetSeqs[i], clean=True)
                 batch_metric_score += nltk.translate.bleu_score.sentence_bleu([reference], predicted)
 
-                if not valid and test:
+                if not valid:
                     output_file.write("\n"+"Input : " +
                                                 data.sequence2str(batch.encoderSeqs[i], clean=True))
 
