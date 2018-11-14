@@ -43,6 +43,7 @@ class Batch:
         self.seqIntent=[]
         self.kb_inputs = []
         self.kb_inputs_mask = []
+        self.targetKbMask = []
         self.targetSeqs = []
         self.weights = []
         self.encoderMaskSeqs = []
@@ -124,9 +125,8 @@ class TextData:
             for i in range(self.getVocabularySize()):
                 i_embedding = self.word_to_embedding_dict[self.id2word[i]]
                 if sum(i_embedding) == 0 and len(self.id2word[i].split("_")) >1:
-                    print(i_embedding)
                     for word in self.id2word[i].split("_"):
-                        i_embedding+=self.word_to_embedding_dict[word]
+                        i_embedding = np.add(i_embedding, self.word_to_embedding_dict[word])
                     emb_matrix[i] = i_embedding/ len(self.id2word[i].split("_"))
                 else:
                     emb_matrix[i] = i_embedding
@@ -274,6 +274,8 @@ class TextData:
             batch.encoderSeqsLen.append(len(sample[0]))
             batch.decoderSeqsLen.append(len(sample[1])+1)
 
+            batch.targetKbMask.append(self.get_kb_mask(sample[1], sample[2]))
+
             if len(batch.encoderSeqs[i]) > self.maxLengthEnco:
                 batch.encoderSeqs[i]= batch.encoderSeqs[i][self.maxLengthEnco:]
             if len(batch.targetSeqs[i]) > self.maxLengthDeco:
@@ -288,44 +290,47 @@ class TextData:
             batch.decoderMaskSeqs[i] =batch.decoderMaskSeqs[i] + [0] * (self.maxLengthDeco - len(batch.decoderMaskSeqs[i]))
 
             batch.targetSeqs[i]  = batch.targetSeqs[i]  + [self.padToken] * (self.maxLengthDeco - len(batch.targetSeqs[i]))
+
+            batch.targetKbMask[i] = batch.targetKbMask[i]  + [self.padToken] * (self.maxLengthDeco - len(batch.targetKbMask[i]))
             batch.kb_inputs[i] = batch.kb_inputs[i] # + [0, 0, 0]* (self.maxTriples - len(batch.kb_inputs[i]))
+
 
         # print ("Before Reshaping %d" % len(batch.encoderSeqs))
         # print ("Before Reshaping %d" % len(batch.decoderSeqs))
         # Simple hack to reshape the batch
-        if transpose:
-            encoderSeqsT = []  # Corrected orientation
-            for i in range(self.maxLengthEnco):
-                encoderSeqT = []
-                for j in range(batchSize):
-                    encoderSeqT.append(batch.encoderSeqs[j][i])
-                encoderSeqsT.append(encoderSeqT)
-            batch.encoderSeqs = encoderSeqsT
-
-            decoderSeqsT = []
-            targetSeqsT = []
-            weightsT = []
-            for i in range(self.maxLengthDeco):
-                decoderSeqT = []
-                targetSeqT = []
-                weightT = []
-                for j in range(batchSize):
-                    decoderSeqT.append(batch.decoderSeqs[j][i])
-                    targetSeqT.append(batch.targetSeqs[j][i])
-                    weightT.append(batch.weights[j][i])
-                decoderSeqsT.append(decoderSeqT)
-                targetSeqsT.append(targetSeqT)
-                weightsT.append(weightT)
-            batch.decoderSeqs = decoderSeqsT
-            batch.targetSeqs = targetSeqsT
-            batch.weights = weightsT
-            # print ("After Reshaping %d" % len(batch.encoderSeqs))
-            # print ("After Reshaping %d" % len(batch.decoderSeqs))
-
-            # # Debug
-            #self.printBatch(batch)  # Input inverted, padding should be correct
-            #     print(self.sequence2str(samples[0][0]))
-            #     print(self.sequence2str(samples[0][1]))  # Check we did not modified the original sample
+        # if transpose:
+        #     encoderSeqsT = []  # Corrected orientation
+        #     for i in range(self.maxLengthEnco):
+        #         encoderSeqT = []
+        #         for j in range(batchSize):
+        #             encoderSeqT.append(batch.encoderSeqs[j][i])
+        #         encoderSeqsT.append(encoderSeqT)
+        #     batch.encoderSeqs = encoderSeqsT
+        #
+        #     decoderSeqsT = []
+        #     targetSeqsT = []
+        #     weightsT = []
+        #     for i in range(self.maxLengthDeco):
+        #         decoderSeqT = []
+        #         targetSeqT = []
+        #         weightT = []
+        #         for j in range(batchSize):
+        #             decoderSeqT.append(batch.decoderSeqs[j][i])
+        #             targetSeqT.append(batch.targetSeqs[j][i])
+        #             weightT.append(batch.weights[j][i])
+        #         decoderSeqsT.append(decoderSeqT)
+        #         targetSeqsT.append(targetSeqT)
+        #         weightsT.append(weightT)
+        #     batch.decoderSeqs = decoderSeqsT
+        #     batch.targetSeqs = targetSeqsT
+        #     batch.weights = weightsT
+        #     # print ("After Reshaping %d" % len(batch.encoderSeqs))
+        #     # print ("After Reshaping %d" % len(batch.decoderSeqs))
+        #
+        #     # # Debug
+        #     #self.printBatch(batch)  # Input inverted, padding should be correct
+        #     #     print(self.sequence2str(samples[0][0]))
+        #     #     print(self.sequence2str(samples[0][1]))  # Check we did not modified the original sample
         return batch
 
     def getTestingBatch(self, batch_size=1):
@@ -345,33 +350,60 @@ class TextData:
             break
         return batches
 
+    def get_kb_mask(self, sentence, kb):
+        kb_mask = sentence[:]
+        for i, word in enumerate(sentence):
+            for triple in kb:
+                if triple[0] == word or triple[2] == word:
+                    kb_mask[i]=1
+                    break
+                else:
+                    kb_mask[i]=0
+
+        assert len(kb_mask) == len(sentence)
+
+        return kb_mask
+
+
+
+
     def getBatches(self, batch_size=1,valid=False,test=False, transpose=True):
         """Prepare the batches for the current epoch
         Return:
             list<Batch>: Get a list of the batches for the next epoch
         """
         self.shuffle()
-        self.batchSize=batch_size
+
+        self.batchSize = batch_size
 
         batches = []
 
         def genNextSamples():
             """ Generator over the mini-batch training samples
             """
-            for i in range(0, self.getSampleSize(), self.batchSize):
-                yield self.trainingSamples[i:min(i + self.batchSize, self.getSampleSize())]
+            for i in range(0, len(self.trainingSamples), batch_size):
+                if len(self.trainingSamples) > (i+batch_size):
+                    yield self.trainingSamples[i:(i + batch_size)]
+                else:
+                    yield self.trainingSamples[-batch_size:]
 
         def genValidNextSamples():
             """ Generator over the mini-batch training samples
                 """
-            for i in range(0, len(self.validationSamples), self.batchSize):
-                yield self.validationSamples[i:min(i + self.batchSize, len(self.validationSamples))]
+            for i in range(0, len(self.validationSamples), batch_size):
+                if len(self.validationSamples) > (i + batch_size):
+                    yield self.validationSamples[i:min(i + batch_size, len(self.validationSamples))]
+                else:
+                    yield self.validationSamples[-batch_size:]
 
         def genTestNextSamples():
             """ Generator over the mini-batch training samples
                 """
-            for i in range(0, len(self.testSamples), self.batchSize):
-                yield self.testSamples[i:min(i + self.batchSize, len(self.testSamples))]
+            for i in range(0, len(self.testSamples), batch_size):
+                if len(self.testSamples) > (i + batch_size):
+                    yield self.testSamples[i:min(i + batch_size, len(self.testSamples))]
+                else:
+                    yield self.testSamples[-batch_size:]
 
         # TODO: Should replace that by generator (better: by tf.queue)
         if valid:
@@ -388,7 +420,6 @@ class TextData:
                 batches.append(batch)
         # remove
         #if len(batches[len(batches)-1].encoderSeqs)!=batches or len(batches[len(batches)-1].decoderSeqs) != batch_size :
-        batches.pop()
 
         return batches
 
@@ -639,8 +670,8 @@ class TextData:
         output_conversation = []
         input_txt_conversation = []
         output_txt_conversation = []
-        triples = self.extractText(conversation['kb'], kb=True)
-        targetIntent = self.extractText(conversation['intent'], intent=True)
+        triples = self.extractText(conversation['kb'], kb=True, train=not(valid or test))
+        targetIntent = self.extractText(conversation['intent'], intent=True, train=not(valid or test))
         for i in tqdm_wrap(
             range(0, len(conversation['lines']) - 1, step),  # We ignore the last line (no answer for it)
             desc='Conversation',
@@ -666,7 +697,6 @@ class TextData:
                     if "slots" in targetLine:
                         targeState = targetLine["slots"]
 
-
                     if i >= 1:
                         input_conversation.append(self.eouToken)
                         input_conversation.extend(output_conversation)
@@ -679,14 +709,11 @@ class TextData:
                     input_txt_conversation.append(inputLine['utterance'])
                     output_txt_conversation = targetLine['utterance']
 
-                    input_conversation.extend(self.extractText(inputLine['utterance'], triples))
-                    output_conversation = self.extractText(targetLine['utterance'], triples)
+                    input_conversation.extend(self.extractText(inputLine['utterance'], triples, train=not(valid or test)))
+                    output_conversation = self.extractText(targetLine['utterance'], triples, train=not(valid or test))
                     out_with_intent = output_conversation
 
                    # out_with_intent.append(self.word2id[self.id2intent[targetIntent]])
-
-
-
 
                 if not valid and not test:  # Filter wrong samples (if one of the list is empty)
                     if truncate and ( len(input_conversation[:]) >= 40 or len(output_conversation[:]) >= 40) :
@@ -701,11 +728,11 @@ class TextData:
                         self.validationSamples.append([input_conversation[len(input_conversation) - 40:], output_conversation[:40], triples,targetIntent])
                     else:
                         self.validationSamples.append([input_conversation[:], output_conversation[:], triples,targetIntent])
-                    self.txtValidationSamples.append([input_txt_conversation[:], output_txt_conversation,targetIntent])
+                    self.txtValidationSamples.append([self.sequence2str(input_conversation[:]), self.sequence2str(out_with_intent[:]),self.id2intent[targetIntent]])
                 elif test:
                     self.testSamples.append([input_conversation[:], output_conversation[:], triples, targetIntent])
 
-    def extractText(self, line, triples=[], kb = False, intent=False):
+    def extractText(self, line, triples=[], kb = False, intent=False, train=True):
         """Extract the words from a sample lines
         Args:
             line (str): a line containing the text to extract
@@ -734,24 +761,23 @@ class TextData:
                             if len(entities) == 3:
                                 triples.append(entities[:])
                                 entities.pop()
-                                entities.append(self.getWordId(processed_entity.lower()))
+                                entities.append(self.getWordId(processed_entity.lower(), train))
 
                                 # entities_property[self.id2word[entities[0]]+i+self.id2word[entities[1]]] = \
                                 #     self.id2word[entities[3]]
 
                             else:
-                                entities.append(self.getWordId(processed_entity.lower()))
+                                entities.append(self.getWordId(processed_entity.lower(), train))
 
                     else:
                         processed_entity = "_".join(re.findall(r"[\w']+|[^\s\w']",
                                                                " ".join(re.split('(\d+)(?=[a-z]|\-)',
                                                                                  entity.strip().lower()))))
-                        entities.append(self.getWordId(processed_entity.lower()))
+                        entities.append(self.getWordId(processed_entity.lower(), train))
                 #entities_property[entities[0]+'_'+entities[1]]=entities[2]
                 triples.append(entities)
-
-
             return triples
+
         else:
             line = line.lower()
             line = ' '.join(re.split('(\d+)(?=[a-z]|\-)', line)).strip()
@@ -766,20 +792,30 @@ class TextData:
 
                 if object in line:
                     count = count + 1
-                    line = re.sub(object , "_entity_" + str(count) + "_", line)
-                    line = re.sub("_entity_[0-9]_[a-z|']{1,}", "_entity_" + str(count) + "_", line)
-                    entities["_entity_"+str(count)+"_"] = ki_text[2]
+                    line_temp = re.sub(" "+object , " _entity_" + str(count) + "_", line)
+                    line_temp = re.sub("_entity_[0-9]_[a-z|']{1,}", "_entity_" + str(count) + "_", line_temp)
+                    if "_entity_" + str(count) + "_" in line_temp.split(" "):
+                        if 't_entity_6_' in line_temp:
+                            print("ss")
+                            print(line_temp.split(" "))
+                            print("_entity_" + str(count) + "_")
+                            print(ki_text[2])
+                        line=line_temp
+                        entities["_entity_" + str(count) + "_"] = ki_text[2]
 
                 subject = " ".join(ki_text[0].split('_'))
 
                 if subject in line:
                     count = count + 1
-                    line = re.sub(subject, "_entity_" + str(count) + "_", line)
-                    line = re.sub("_entity_[0-9]_[a-z|']{1,}", "_entity_" + str(count) + "_", line)
-                    entities["_entity_"+str(count)+"_"] = ki_text[0]
-
-
-
+                    line_temp = re.sub(" "+subject, " _entity_" + str(count) + "_", line)
+                    line_temp = re.sub("_entity_[0-9]_[a-z|']{1,}", "_entity_" + str(count) + "_", line_temp)
+                    if "_entity_" + str(count) + "_" in line_temp.split(" "):
+                        if 't_entity_6_' in line_temp:
+                            print(line_temp)
+                            print(line)
+                            print(ki_text[0])
+                        line = line_temp
+                        entities["_entity_"+str(count)+"_"] = ki_text[0]
 
             sentences = []  # List[List[str]]
             # Extract sentences
@@ -788,15 +824,14 @@ class TextData:
             # We add sentence by sentence until we reach the maximum length
             for i in range(len(sentencesToken)):
                 if sentencesToken[i] in entities:
-                    token = '_'.join(re.split(" ", entities[sentencesToken[i]]))
-                    print(token)
-                    sentences.append(self.getWordId(token))
+                    token = entities[sentencesToken[i]]
+                    sentences.append(self.getWordId(token, train))
                 else:
                     token = sentencesToken[i].strip(",").strip(".").strip(":").strip("?").\
                     strip("!").strip(";").strip(' \n\t').strip().strip(" ").strip('\t')
                     if len(token) == 0:
                         continue
-                    sentences.append(self.getWordId(token))  # Create the vocabulary and the training sentences
+                    sentences.append(self.getWordId(token, train))  # Create the vocabulary and the training sentences
 
             return sentences
 
@@ -830,7 +865,7 @@ class TextData:
                 else:
                     word_to_embedding_dict[word] = representation
 
-        _WORD_NOT_FOUND = [0.0] * len(representation)  # Empty representation for unknown words.
+        _WORD_NOT_FOUND = np.random.uniform(low=0.1, high=1.3, size=(len(representation),))   # Empty representation for unknown words.
         if with_indexes:
             _LAST_INDEX = i + 1
             word_to_index_dict = defaultdict(lambda: _LAST_INDEX, word_to_index_dict)

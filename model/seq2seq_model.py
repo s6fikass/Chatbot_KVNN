@@ -20,7 +20,6 @@ import nltk
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import numpy as np
-from train import masked_cross_entropy as length_cross_entropy
 
 hostname = socket.gethostname()
 
@@ -580,10 +579,13 @@ class Seq2SeqAttnmitIntent(nn.Module):
         Sequence to sequence model with Luong Attention
         """
     def __init__(self,  attn_model, hidden_size, input_size, output_size, batch_size, sos_tok, eso_tok, n_layers=1, dropout=0.1,
-                 intent_size=3, lr=0.001, decoder_learning_ratio = 5.0,pretrained_emb=None, clip=50.0, teacher_forcing_ratio=1, gpu=False):
+                 intent_size=3, intent_loss_coff=0.9, lr=0.001, decoder_learning_ratio = 5.0, pretrained_emb=None, clip=50.0, teacher_forcing_ratio=1, gpu=False):
         super(Seq2SeqAttnmitIntent, self).__init__()
 
         self.name = "LuongSeq2Seq"
+
+        self.intent_size = intent_size
+        self.intent_coff = intent_loss_coff
 
         self.input_size = input_size
         self.output_size = output_size
@@ -607,7 +609,8 @@ class Seq2SeqAttnmitIntent(nn.Module):
         #self.embedding = nn.Embedding(self.output_size, self.emb_dim, padding_idx=0)
 
         self.encoder = LuongEncoderRNN(self.input_size, hidden_size, self.n_layers, dropout=dropout)
-        self.decoder = LuongAttnDecoderRNN(attn_model, hidden_size, self.output_size, self.n_layers, dropout=dropout, use_cuda=self.use_cuda)
+        self.decoder = LuongAttnDecoderRNN(attn_model, hidden_size, self.output_size, self.n_layers,
+                                           intent_size=self.intent_size, dropout=dropout, use_cuda=self.use_cuda)
 
         if self.use_cuda:
             self.encoder = self.encoder.cuda()
