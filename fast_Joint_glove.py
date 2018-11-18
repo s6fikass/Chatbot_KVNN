@@ -7,23 +7,22 @@ import  os
 import pickle
 import numpy as np
 import torch
-from pandas import read_csv
-from sklearn.datasets import fetch_20newsgroups
 from torch.autograd import Variable
 from torch.utils.data import Dataset
 from tqdm import tqdm
 import nltk
+import hypertools as hyp
 
 # Hyperparameters
 N_EMBEDDING = 200
 BASE_STD = 0.01
 BATCH_SIZE = 512
-NUM_EPOCH = 100
+NUM_EPOCH = 600
 MIN_WORD_OCCURENCES = 1
 X_MAX = 100
 ALPHA = 0.75
 BETA = 0.0001
-RIGHT_WINDOW = 20
+RIGHT_WINDOW = 15
 
 USE_CUDA = False
 
@@ -41,10 +40,11 @@ class WordIndexer:
     """Transform g a dataset of text to a list of index of words. Not memory 
     optimized for big datasets"""
 
-    def __init__(self, min_word_occurences=1, right_window=10):
+    def __init__(self, min_word_occurences=1, right_window=15):
         self.right_window = right_window
         self.min_word_occurences = min_word_occurences
         self.word_occurrences = {}
+        self.entity_occurrences = {}
         self.loadDataset("data/samples/dataset-kvret.pkl")
         #self.re_words = nltk.word_tokenize() #re.compile(r"\b[a-zA-Z1-9]{1,}\b")
 
@@ -81,7 +81,7 @@ class WordIndexer:
         return len(self.word_to_index)
 
     def fit_transform(self, texts):
-        l_words = [list(re.findall(r"[\w']+|[^\s\w']", ' '.join( sentence.lower()).replace(',', ' ').strip()))
+        l_words = [list(re.findall(r"[\w']+|[^\s\w']", sentence.replace(',', ' ').replace('<eou> ','').strip()))
                    for sentence in texts]
         word_occurrences = Counter(word for words in l_words for word in words)
 
@@ -101,15 +101,72 @@ class WordIndexer:
             for distance, right_index in enumerate(window):
                 yield left_index, right_index, distance + 1
 
+    def _get_kb_triples(self):
+        ng= Counter()
+        for sample in self.trainingSamples:
+            for triple in sample[2]:
+                if (triple[0],triple[2]) in ng:
+                    ng[(triple[0],triple[2])] += 1
+                else:
+                    ng[(triple[0], triple[2])] = 1
+        return ng
+
+    def sequence2str(self, sequence, tensor = False):
+        """Convert a list of integer into a human readable string
+        Args:
+            sequence (list<int>): the sentence to print
+            clean (Bool): if set, remove the <go>, <pad> and <eos> tokens
+            reverse (Bool): for the input, option to restore the standard order
+        Return:
+            str: the sentence
+        """
+        try:
+            if len(sequence) == 0:
+                return ''
+        except:
+            print(sequence)
+        if tensor:
+            sequence=sequence.cpu().numpy()
+
+        return ' '.join([self.index_to_word[idx] for idx in sequence])
+
+    # Co-occurence matrix X
     def get_comatrix(self, data):
+
         comatrix = Counter()
         z = 0
         for indexes in data:
             l_ngrams = self._get_ngrams(indexes)
+
             for left_index, right_index, distance in l_ngrams:
                 comatrix[(left_index, right_index)] += 1. / distance
                 z += 1
         return zip(*[(left, right, x) for (left, right), x in comatrix.items()])
+
+    def get_Kb_comatrix(self, data):
+
+        entity_occurrences = Counter(entity for sample in self.trainingSamples for triple in sample[2] for entity in triple)
+
+        self.entity_occurrences = {
+            word: n_occurences
+            for word, n_occurences in entity_occurrences.items()
+        }
+
+        comatrix = Counter()
+        z = 0
+        entities = self._get_kb_triples()
+        for indexes in data:
+            l_ngrams = self._get_ngrams(indexes)
+
+            for left_index, right_index, distance in l_ngrams:
+                if (left_index, right_index) in entities:
+                    comatrix[(left_index, right_index)] += abs(
+                        self.entity_occurrences.get(left_index)-self.entity_occurrences.get(right_index))
+                else:
+                    comatrix[(left_index, right_index)] =0
+                z += 1
+        return zip(*[(left, right, x) for (left, right), x in comatrix.items()])
+
 
 
 class GloveDataset(Dataset):
@@ -120,6 +177,7 @@ class GloveDataset(Dataset):
 
         return (self.L_vecs[index].data + self.R_vecs[index].data).numpy()
 
+
     def __init__(self, texts, right_window=1, random_state=0):
         torch.manual_seed(random_state)
 
@@ -127,7 +185,10 @@ class GloveDataset(Dataset):
                                    min_word_occurences=MIN_WORD_OCCURENCES)
         data = self.indexer.fit_transform(texts)
         left, right, n_occurrences = self.indexer.get_comatrix(data)
+        kb_left, kb_right, kb_n_occurrences = self.indexer.get_Kb_comatrix(data)
+
         n_occurrences = np.array(n_occurrences)
+        kb_n_occurrences=np.array(kb_n_occurrences)
         self.n_obs = len(left)
 
         # We create the variables
@@ -135,7 +196,12 @@ class GloveDataset(Dataset):
         self.R_words = cuda(torch.LongTensor(right))
 
         self.weights = np.minimum((n_occurrences / X_MAX) ** ALPHA, 1)
+
         self.weights = Variable(cuda(torch.FloatTensor(self.weights)))
+
+        self.kb_weights = np.minimum((kb_n_occurrences / X_MAX) ** ALPHA, 1)
+        self.kb_weights = Variable(cuda(torch.FloatTensor(self.kb_weights)))
+
         self.y = Variable(cuda(torch.FloatTensor(np.log(n_occurrences))))
 
         # We create the embeddings and biases
@@ -157,20 +223,37 @@ def gen_batchs(data):
     for idx in range(0, len(data) - BATCH_SIZE + 1, BATCH_SIZE):
         sample = indices[idx:idx + BATCH_SIZE]
         l_words, r_words = data.L_words[sample], data.R_words[sample]
+        # print("l_words",data.indexer.index_to_word[l_words.item()])
+        # print("r_words",data.indexer.index_to_word[r_words.item()])
         l_vecs = data.L_vecs[l_words]
         r_vecs = data.R_vecs[r_words]
         l_bias = data.L_biases[l_words]
         r_bias = data.R_biases[r_words]
         weight = data.weights[sample]
+        kb_weight = data.kb_weights[sample]
         y = data.y[sample]
-        yield weight, l_vecs, r_vecs, y, l_bias, r_bias
+        yield kb_weight, weight, l_vecs, r_vecs, y, l_bias, r_bias
 
 
-def get_loss(weight, l_vecs, r_vecs, log_covals, l_bias, r_bias):
+def get_loss(R_vector, weight, l_vecs, r_vecs, log_covals, l_bias, r_bias):
     sim = (l_vecs * r_vecs).sum(1).view(-1)
     x = (sim + l_bias + r_bias - log_covals) ** 2
     loss = torch.mul(x, weight)
-    return loss.mean()
+
+    sim2 = ((l_vecs - r_vecs).sum(1).view(-1)) ** 2
+    loss2 = torch.mul(sim2, R_vector)
+
+    Total_loss = loss + 10000*loss2
+
+    return Total_loss.mean()
+
+
+def get_Kb_loss(R_vector, weight, l_vecs, r_vecs, log_covals, l_bias, r_bias):
+    sim2 = ((l_vecs - r_vecs).sum(1).view(-1)) ** 2
+
+    loss2 = torch.mul(sim2, R_vector)
+
+    return loss2.mean()
 
 
 def train_model(data: GloveDataset):
@@ -184,6 +267,8 @@ def train_model(data: GloveDataset):
         for batch in tqdm(gen_batchs(data), total=n_batch, mininterval=1):
             optimizer.zero_grad()
             loss = get_loss(*batch)
+            # loss2 = get_Kb_loss(*batch)
+            # loss= loss + 100*loss2.item()
             avg_loss += loss.item() / num_batches
             loss.backward()
             optimizer.step()
@@ -204,21 +289,26 @@ if __name__ == "__main__":
 
     #print(type(glove_data.indexer.index_to_word))
 
+    vocab=[]
     with open('data/samples/jointEmbedding.txt', 'w') as myfile:
 
         for key, value in glove_data.indexer.index_to_word.items():
             myfile.write(value+" ")
             myfile.write(' '.join(str(v) for v in list(glove_data.__getitem__(key))))
             myfile.write("\n")
+            vocab.append(glove_data.__getitem__(key))
 
     #     myfile.write("%s\n" % var1)
     # glove_data.indexer.index_to_word[]
 
-    # word_inds = np.random.choice(np.arange(len(vocab)), size=10, replace=False)
-    # for word_ind in word_inds:
+    word_inds = np.random.choice(np.arange(len(vocab)), size=10, replace=False)
+    # for key, value in glove_data.indexer.index_to_word.items():
     #     # Create embedding by summing left and right embeddings
-    #     w_embed = (l_embed[word_ind].data + r_embed[word_ind].data).numpy()
+    #     w_embed = glove_data.__getitem__(key)
+    #
     #     x, y = w_embed[0][0], w_embed[1][0]
+    #
     #     plt.scatter(x, y)
     #     plt.annotate(vocab[word_ind], xy=(x, y), xytext=(5, 2),
     #                  textcoords='offset points', ha='right', va='bottom')
+    hyp.plot(vocab, '.', ndims=2)

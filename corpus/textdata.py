@@ -774,6 +774,7 @@ class TextData:
                                                                " ".join(re.split('(\d+)(?=[a-z]|\-)',
                                                                                  entity.strip().lower()))))
                         entities.append(self.getWordId(processed_entity.lower(), train))
+
                 #entities_property[entities[0]+'_'+entities[1]]=entities[2]
                 triples.append(entities)
             return triples
@@ -781,7 +782,7 @@ class TextData:
         else:
             line = line.lower()
             line = ' '.join(re.split('(\d+)(?=[a-z]|\-)', line)).strip()
-            line = ' '.join(re.findall(r"[\w']+|[^\s\w']",line))
+            line = ' '.join(re.findall(r"[\w']+|[^\s\w']", line))
             count = 0
             entities ={}
 
@@ -795,27 +796,25 @@ class TextData:
                     line_temp = re.sub(" "+object , " _entity_" + str(count) + "_", line)
                     line_temp = re.sub("_entity_[0-9]_[a-z|']{1,}", "_entity_" + str(count) + "_", line_temp)
                     if "_entity_" + str(count) + "_" in line_temp.split(" "):
-                        if 't_entity_6_' in line_temp:
-                            print("ss")
-                            print(line_temp.split(" "))
-                            print("_entity_" + str(count) + "_")
-                            print(ki_text[2])
                         line=line_temp
                         entities["_entity_" + str(count) + "_"] = ki_text[2]
+
+
 
                 subject = " ".join(ki_text[0].split('_'))
 
                 if subject in line:
                     count = count + 1
-                    line_temp = re.sub(" "+subject, " _entity_" + str(count) + "_", line)
+                    line_temp = re.sub("(?![a-z]|[1-9])*"+subject, "_entity_" + str(count) + "_", line)
                     line_temp = re.sub("_entity_[0-9]_[a-z|']{1,}", "_entity_" + str(count) + "_", line_temp)
                     if "_entity_" + str(count) + "_" in line_temp.split(" "):
-                        if 't_entity_6_' in line_temp:
-                            print(line_temp)
-                            print(line)
-                            print(ki_text[0])
                         line = line_temp
                         entities["_entity_"+str(count)+"_"] = ki_text[0]
+                    if "new york" in line:
+                        print(line)
+                        print(subject)
+                        print(line_temp.split(" "))
+
 
             sentences = []  # List[List[str]]
             # Extract sentences
