@@ -90,9 +90,11 @@ class KvretData:
                 # Get KB entries
                 predicate = []
                 subject = None
+                convObj["intent"] = dialogue["scenario"]["task"]["intent"]
                 for col in dialogue["scenario"]["kb"]["column_names"]:
                     if subject is None:
                         subject = col
+                        predicate.append(col)
                     else:
                         predicate.append(col)
                 triples = []
@@ -100,11 +102,14 @@ class KvretData:
                     for items in dialogue["scenario"]["kb"]["items"]:
                         for pred in predicate:
                             if (pred in items):
-                                triples.append([items[subject], pred, items[pred]])
+                                if items[pred] == items[subject]:
+                                    triples.append([convObj["intent"], pred, items[pred]])
+                                else:
+                                    triples.append([items[subject], pred, items[pred]])
                             else:
                                 triples.append([items[subject], pred, "-"])
                 convObj["kb"] = triples
-                convObj["intent"] = dialogue["scenario"]["task"]["intent"]
+
                 conversation.append(convObj)
         return [lines, conversation]
 

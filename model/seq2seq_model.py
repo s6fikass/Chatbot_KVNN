@@ -25,15 +25,17 @@ hostname = socket.gethostname()
 
 
 class LuongEncoderRNN(nn.Module):
-    def __init__(self, input_size, hidden_size, n_layers=1, dropout=0.1):
+    def __init__(self, input_size, hidden_size, n_layers=1, emb=None, dropout=0.1):
         super(LuongEncoderRNN, self).__init__()
 
         self.input_size = input_size
         self.hidden_size = hidden_size
         self.n_layers = n_layers
         self.dropout = dropout
-
-        self.embedding = nn.Embedding(input_size, hidden_size)
+        if emb:
+            self.embedding=emb
+        else:
+            self.embedding = nn.Embedding(input_size, hidden_size)
         self.lstm = nn.LSTM(hidden_size, hidden_size, n_layers, dropout=self.dropout)
 
     def forward(self, input_seqs, input_lengths, hidden=None):
@@ -168,7 +170,8 @@ class Attention(nn.Module):
 
 
 class LuongAttnDecoderRNN(nn.Module):
-    def __init__(self, attn_model, hidden_size, output_size, n_layers=1, dropout=0.1, intent_size=3, use_cuda=None):
+    def __init__(self, attn_model, hidden_size, output_size, n_layers=1, dropout=0.1, intent_size=3, emb=None,
+                 use_cuda=None):
         super(LuongAttnDecoderRNN, self).__init__()
 
         # Keep for reference
@@ -181,8 +184,12 @@ class LuongAttnDecoderRNN(nn.Module):
         self.use_cuda = use_cuda
 
         # Define layers
-        self.embedding = nn.Embedding(output_size, hidden_size)
-        self.embedding_dropout = nn.Dropout(dropout)
+        if emb:
+            self.embedding = emb
+        else:
+            self.embedding = nn.Embedding(output_size, hidden_size)
+            self.embedding_dropout = nn.Dropout(dropout)
+
         self.lstm = nn.LSTM(hidden_size, hidden_size, n_layers, dropout=dropout)
         self.lstm_intent = nn.LSTM(intent_size, hidden_size)
 
@@ -204,7 +211,8 @@ class LuongAttnDecoderRNN(nn.Module):
         #         print('[decoder] input_seq', input_seq.size()) # batch_size x 1
         embedded = self.embedding(input_seq)
 
-        embedded = self.embedding_dropout(embedded)
+        if self.embedding_dropout:
+            embedded = self.embedding_dropout(embedded)
         embedded = embedded.view(1, batch_size, self.hidden_size)  # S=1 x B x N
         #print('[decoder] word_embedded', embedded.size())
 
@@ -339,8 +347,8 @@ class Seq2SeqmitAttn(nn.Module):
         self.embedding = nn.Embedding(self.output_size, self.emb_dim, padding_idx=0)
         if pretrained_emb is not None:
             self.embedding.weight.data.copy_(pretrained_emb)
-        if train_emb == False:
-            self.embedding.weight.requires_grad = False
+            if train_emb == False:
+                self.embedding.weight.requires_grad = False
 
         # Use single RNN for both encoder and decoder
         # self.rnn = nn.LSTM(emb_dim, hidden_size, n_layers, dropout=dropout)
@@ -578,8 +586,9 @@ class Seq2SeqAttnmitIntent(nn.Module):
     """
         Sequence to sequence model with Luong Attention
         """
-    def __init__(self,  attn_model, hidden_size, input_size, output_size, batch_size, sos_tok, eso_tok, n_layers=1, dropout=0.1,
-                 intent_size=3, intent_loss_coff=0.9, lr=0.001, decoder_learning_ratio = 5.0, pretrained_emb=None, clip=50.0, teacher_forcing_ratio=1, gpu=False):
+    def __init__(self,  attn_model, hidden_size, input_size, output_size, batch_size, sos_tok, eso_tok, n_layers=1,
+                 dropout=0.1, intent_size=3, intent_loss_coff=0.9, lr=0.001, decoder_learning_ratio=5.0,
+                 pretrained_emb=None, train_emb=False, clip=50.0, teacher_forcing_ratio=1, gpu=False):
         super(Seq2SeqAttnmitIntent, self).__init__()
 
         self.name = "LuongSeq2Seq"
@@ -590,7 +599,9 @@ class Seq2SeqAttnmitIntent(nn.Module):
         self.input_size = input_size
         self.output_size = output_size
 
+        self.emb_dim = hidden_size
         self.hidden_size = hidden_size
+
         self.lr = lr
         self.clip = clip
         self.decoder_learning_ratio = 5.0
@@ -605,10 +616,15 @@ class Seq2SeqAttnmitIntent(nn.Module):
         # self.clip = clip
         self.use_cuda = gpu
 
-        # Common embedding for both encoder and decoder
-        #self.embedding = nn.Embedding(self.output_size, self.emb_dim, padding_idx=0)
 
-        self.encoder = LuongEncoderRNN(self.input_size, hidden_size, self.n_layers, dropout=dropout)
+        # Common embedding for both encoder and decoder
+        self.embedding = nn.Embedding(self.output_size, self.emb_dim, padding_idx=0)
+        if pretrained_emb is not None:
+            self.embedding.weight.data.copy_(pretrained_emb)
+            if train_emb == False:
+                self.embedding.weight.requires_grad = False
+
+        self.encoder = LuongEncoderRNN(self.input_size, hidden_size, self.n_layers,self.embedding, dropout=dropout)
         self.decoder = LuongAttnDecoderRNN(attn_model, hidden_size, self.output_size, self.n_layers,
                                            intent_size=self.intent_size, dropout=dropout, use_cuda=self.use_cuda)
 

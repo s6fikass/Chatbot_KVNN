@@ -67,7 +67,7 @@ class TextData:
         """
         return list(TextData.availableCorpus.keys())
 
-    def __init__(self,dataFile, validFile, testFile, useGlove = None):
+    def __init__(self,dataFile, validFile, testFile, pretrained_emb_file=None, useGlove = None):
         """Load all conversations
         Args:
             args: parameters of the model
@@ -75,7 +75,7 @@ class TextData:
         # Model parameters
         self.vocabularySize = 0
         self.corpus = 'kvret'
-        self.glove_fileName = useGlove # "data/glove_data/jointEmbedding.txt"
+        self.pretrained_emb_file = pretrained_emb_file # "data/glove_data/jointEmbedding.txt"
 
         # Path variables
         self.corpusDir = os.path.join(dataFile)
@@ -116,24 +116,40 @@ class TextData:
         self._printStats()
         self.pretrained_emb =None
 
-        if useGlove:
-            print("Loading Glove embedding from disks...")
-            self.word_to_embedding_dict = self.load_embedding_from_disks(self.glove_fileName)
-            embedding_size = len(self.word_to_embedding_dict.get("<pad>"))
-            emb_matrix = np.zeros([self.getVocabularySize(), embedding_size], int)
+        if pretrained_emb_file:
+            if useGlove:
+                print("Loading Glove embedding from disks...")
+                self.word_to_embedding_dict = self.load_embedding_from_disks(self.pretrained_emb_file)
+                embedding_size = len(self.word_to_embedding_dict["<pad>"])
+                emb_matrix = np.zeros([self.getVocabularySize(), embedding_size], int)
 
-            for i in range(self.getVocabularySize()):
-                i_embedding = self.word_to_embedding_dict[self.id2word[i]]
-                if sum(i_embedding) == 0 and len(self.id2word[i].split("_")) >1:
-                    for word in self.id2word[i].split("_"):
-                        i_embedding = np.add(i_embedding, self.word_to_embedding_dict[word])
-                    emb_matrix[i] = i_embedding/ len(self.id2word[i].split("_"))
-                else:
+                for i in range(self.getVocabularySize()):
+                    i_embedding = self.word_to_embedding_dict[self.id2word[i]]
+                    if len(self.id2word[i].split("_")) >1:
+                        for word in self.id2word[i].split("_"):
+                            i_embedding = np.add(i_embedding, self.word_to_embedding_dict[word])
+                        emb_matrix[i] = i_embedding/ len(self.id2word[i].split("_"))
+                    else:
+                        emb_matrix[i] = i_embedding
+
+                self.pretrained_emb = torch.from_numpy(emb_matrix)
+
+                print("Glove Embedding loaded from disks.")
+            else:
+
+                print("Loading Joint embedding from disks...")
+                self.word_to_embedding_dict = self.load_embedding_from_disks(self.pretrained_emb_file)
+                embedding_size = len(self.word_to_embedding_dict.get("<pad>"))
+                emb_matrix = np.zeros([self.getVocabularySize(), embedding_size], int)
+
+                for i in range(self.getVocabularySize()):
+                    i_embedding = self.word_to_embedding_dict[self.id2word[i]]
                     emb_matrix[i] = i_embedding
 
-            self.pretrained_emb = torch.from_numpy(emb_matrix)
+                self.pretrained_emb = torch.from_numpy(emb_matrix)
 
-            print("Glove Embedding loaded from disks.")
+                print("Joint Embedding loaded from disks.")
+
 
         # if self.playDataset:
         #     self.playDataset()
@@ -752,12 +768,13 @@ class TextData:
             for triple in line:
                 entities=[]
                 for entity in triple:
+                    entity = entity.replace(".", "")
                     if len(re.split(',', entity.lower())) >1:
                         for i, k in enumerate(re.split(',', entity.lower())):
 
                             processed_entity = "_".join(re.findall(r"[\w']+|[^\s\w']",
                                                      " ".join(re.split('(\d+)(?=[a-z]|\-)',
-                                                                       k.strip()))))
+                                                                       k.strip().replace(".","")))))
                             if len(entities) == 3:
                                 triples.append(entities[:])
                                 entities.pop()
@@ -780,7 +797,7 @@ class TextData:
             return triples
 
         else:
-            line = line.lower()
+            line = line.lower().replace(".","")
             line = ' '.join(re.split('(\d+)(?=[a-z]|\-)', line)).strip()
             line = ' '.join(re.findall(r"[\w']+|[^\s\w']", line))
             count = 0
@@ -789,17 +806,16 @@ class TextData:
             for ki in triples:
                 ki_text=self.sequence2str(ki).split()
 
+
                 object = " ".join(ki_text[2].split('_'))
 
                 if object in line:
                     count = count + 1
-                    line_temp = re.sub(" "+object , " _entity_" + str(count) + "_", line)
+                    line_temp = re.sub("(?![a-z]|[1-9])*"+object , " _entity_" + str(count) + "_", line)
                     line_temp = re.sub("_entity_[0-9]_[a-z|']{1,}", "_entity_" + str(count) + "_", line_temp)
                     if "_entity_" + str(count) + "_" in line_temp.split(" "):
                         line=line_temp
                         entities["_entity_" + str(count) + "_"] = ki_text[2]
-
-
 
                 subject = " ".join(ki_text[0].split('_'))
 
@@ -810,10 +826,17 @@ class TextData:
                     if "_entity_" + str(count) + "_" in line_temp.split(" "):
                         line = line_temp
                         entities["_entity_"+str(count)+"_"] = ki_text[0]
-                    if "new york" in line:
-                        print(line)
-                        print(subject)
-                        print(line_temp.split(" "))
+
+
+            # Now to replace 50-60 by low and high degrees
+            p = re.compile("\\b(\d{2} - \d{2,3}( f| degrees)+)\\b")
+            x = p.findall(line)
+            for degrees in x:
+                low = "low_of_" + degrees[0].split("-")[0].strip() + "_f"
+                high = "high_of_" + degrees[0].split("-")[1].strip()
+                high = high.split(" ")[0] + '_f'
+                line = re.sub(degrees[0], low + ' and ' + high, line)
+
 
 
             sentences = []  # List[List[str]]
@@ -864,7 +887,7 @@ class TextData:
                 else:
                     word_to_embedding_dict[word] = representation
 
-        _WORD_NOT_FOUND = np.random.uniform(low=0.1, high=1.3, size=(len(representation),))   # Empty representation for unknown words.
+        _WORD_NOT_FOUND = np.random.uniform(low=0.001, high=1.3, size=(len(representation),))   # random representation for unknown words.
         if with_indexes:
             _LAST_INDEX = i + 1
             word_to_index_dict = defaultdict(lambda: _LAST_INDEX, word_to_index_dict)
@@ -915,7 +938,7 @@ class TextData:
             print('Targets: {}'.format(self.batchSeq2str(batch.targetSeqs, seqId=i)))
             print('Weights: {}'.format(' '.join([str(weight) for weight in [batchWeight[i] for batchWeight in batch.weights]])))
 
-    def sequence2str(self, sequence, clean=False, reverse=False,tensor = False):
+    def sequence2str(self, sequence, clean=False, reverse=False, tensor = False):
         """Convert a list of integer into a human readable string
         Args:
             sequence (list<int>): the sentence to print
@@ -940,7 +963,7 @@ class TextData:
             if wordId == self.eosToken:  # End of generated sentence
                 sentence.append(self.id2word[wordId])
                 break
-            elif wordId != self.padToken and wordId != self.goToken:
+            elif wordId != self.padToken and wordId != self.goToken and wordId != self.eouToken:
                 sentence.append(self.id2word[wordId])
 
         if reverse:  # Reverse means input so no <eos> (otherwise pb with previous early stop)

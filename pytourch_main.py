@@ -17,9 +17,6 @@ from torch.nn import functional
 from torch.autograd import Variable
 
 
-from train import train
-
-from evaluate import evaluate_model, evaluate_randomly, evaluate_sample
 
 USE_CUDA = False
 hostname = socket.gethostname()
@@ -45,7 +42,8 @@ def main(args):
     train_file = 'data/kvret_train_public.json'
     valid_file = 'data/kvret_dev_public.json'
     test_file = 'data/kvret_test_public.json'
-    textdata = TextData(train_file, valid_file, test_file, args.emb)
+    textdata = TextData(train_file, valid_file, test_file, pretrained_emb_file=args.emb,
+                        useGlove=args.glove)
 
     args.data = textdata
 
@@ -55,7 +53,7 @@ def main(args):
 
     # Configure models
     attn_model = 'dot'
-    hidden_size = 200
+    hidden_size = 300
 
     # Configure training/optimization
     n_epochs = args.epochs
@@ -254,7 +252,7 @@ if __name__ == '__main__':
 
     named_args.add_argument('-es', '--embedding', metavar='|',
                             help="""Size of the embedding""",
-                            required=False, default=200, type=int)
+                            required=False, default=300, type=int)
 
     named_args.add_argument('-g', '--gpu', metavar='|',
                             help="""GPU to use""",
@@ -293,8 +291,12 @@ if __name__ == '__main__':
                             required=False, default=False, type=bool)
 
     named_args.add_argument('-emb', '--emb', metavar='|',
-                            help="""to use pretrained embeddings """,
+                            help="""to use Joint pretrained embeddings """,
                             required=False, default=None, type=str)
+
+    named_args.add_argument('-glove', '--glove', metavar='|',
+                            help="""to use Glove or any unfamiliar pretrained embeddings """,
+                            required=False, default=None, type=bool)
 
     named_args.add_argument('-intent', '--intent', metavar='|',
                             help="""Joint learning based on intent """,
@@ -309,17 +311,9 @@ if __name__ == '__main__':
                             required=False, default=False, type=bool)
 
     args = parser.parse_args()
-    #args.model="KVSeq2Seq"
-    #args.val=True
     if args.cuda:
         USE_CUDA = True
 
-    # try:
-    #     torch.LongTensor([1,2]).cuda()
-    #     USE_CUDA = True
-    # except:
-    #     print("no cuda")
-    #     USE_CUDA = False
     main(args)
 
 

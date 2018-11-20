@@ -14,10 +14,10 @@ import nltk
 import hypertools as hyp
 
 # Hyperparameters
-N_EMBEDDING = 200
+N_EMBEDDING = 300
 BASE_STD = 0.01
-BATCH_SIZE = 512
-NUM_EPOCH = 600
+BATCH_SIZE = 1024
+NUM_EPOCH = 900
 MIN_WORD_OCCURENCES = 1
 X_MAX = 100
 ALPHA = 0.75
@@ -160,13 +160,12 @@ class WordIndexer:
 
             for left_index, right_index, distance in l_ngrams:
                 if (left_index, right_index) in entities:
-                    comatrix[(left_index, right_index)] += abs(
+                    comatrix[(left_index, right_index)] += 1/abs(
                         self.entity_occurrences.get(left_index)-self.entity_occurrences.get(right_index))
                 else:
                     comatrix[(left_index, right_index)] =0
                 z += 1
         return zip(*[(left, right, x) for (left, right), x in comatrix.items()])
-
 
 
 class GloveDataset(Dataset):
@@ -176,7 +175,6 @@ class GloveDataset(Dataset):
     def __getitem__(self, index):
 
         return (self.L_vecs[index].data + self.R_vecs[index].data).numpy()
-
 
     def __init__(self, texts, right_window=1, random_state=0):
         torch.manual_seed(random_state)
@@ -199,8 +197,8 @@ class GloveDataset(Dataset):
 
         self.weights = Variable(cuda(torch.FloatTensor(self.weights)))
 
-        self.kb_weights = np.minimum((kb_n_occurrences / X_MAX) ** ALPHA, 1)
-        self.kb_weights = Variable(cuda(torch.FloatTensor(self.kb_weights)))
+        self.kb_weights = np.minimum((kb_n_occurrences) ** ALPHA, 1)
+        self.kb_weights = Variable(cuda(torch.FloatTensor(kb_n_occurrences)))#self.kb_weights)))
 
         self.y = Variable(cuda(torch.FloatTensor(np.log(n_occurrences))))
 
@@ -212,7 +210,7 @@ class GloveDataset(Dataset):
         R_biases = cuda(torch.randn((N_WORDS,)) * BASE_STD)
         self.all_params = [Variable(e, requires_grad=True)
                            for e in (L_vecs, R_vecs, L_biases, R_biases)]
-        self.L_vecs, self.R_vecs, self.L_biases, self.R_biases = self.all_params
+        self.L_vecs, self.R_vecs, self.L_biases, self.R_biases, = self.all_params
 
 
 def gen_batchs(data):
@@ -247,8 +245,10 @@ def get_loss(R_vector, weight, l_vecs, r_vecs, log_covals, l_bias, r_bias):
 
     return Total_loss.mean()
 
-
+# this was added to get_loss
 def get_Kb_loss(R_vector, weight, l_vecs, r_vecs, log_covals, l_bias, r_bias):
+
+
     sim2 = ((l_vecs - r_vecs).sum(1).view(-1)) ** 2
 
     loss2 = torch.mul(sim2, R_vector)
@@ -257,7 +257,7 @@ def get_Kb_loss(R_vector, weight, l_vecs, r_vecs, log_covals, l_bias, r_bias):
 
 
 def train_model(data: GloveDataset):
-    optimizer = torch.optim.Adam(data.all_params, weight_decay=1e-8)
+    optimizer = torch.optim.Adam(data.all_params, weight_decay=1e-6, lr=1e-4)
     optimizer.zero_grad()
     for epoch in tqdm(range(NUM_EPOCH)):
         logging.info("Start epoch %i", epoch)
@@ -279,29 +279,29 @@ if __name__ == "__main__":
     logging.info("Fetching data")
     #newsgroup = fetch_20newsgroups(data_home="data/glove_data",remove=('headers', 'footers', 'quotes'))
     logging.info("Build dataset")
-    with open('data/samples/emb_in.txt', 'r') as myfile:
-        data=myfile.readlines()
-    glove_data = GloveDataset(data, right_window=RIGHT_WINDOW)
-    logging.info("#Words: %s", glove_data.indexer.n_words)
-    logging.info("#Ngrams: %s", len(glove_data))
-    logging.info("Start training")
-    train_model(glove_data)
+    try:
+        with open('data/samples/emb_in.txt', 'r') as myfile:
+            data=myfile.readlines()
+        glove_data = GloveDataset(data, right_window=RIGHT_WINDOW)
+        logging.info("#Words: %s", glove_data.indexer.n_words)
+        logging.info("#Ngrams: %s", len(glove_data))
+        logging.info("Start training")
+        train_model(glove_data)
 
-    #print(type(glove_data.indexer.index_to_word))
+        #print(type(glove_data.indexer.index_to_word))
 
-    vocab=[]
-    with open('data/samples/jointEmbedding.txt', 'w') as myfile:
+        vocab=[]
+        with open('data/samples/jointEmbedding.txt', 'w') as myfile:
 
-        for key, value in glove_data.indexer.index_to_word.items():
-            myfile.write(value+" ")
-            myfile.write(' '.join(str(v) for v in list(glove_data.__getitem__(key))))
-            myfile.write("\n")
-            vocab.append(glove_data.__getitem__(key))
+            for key, value in glove_data.indexer.index_to_word.items():
+                myfile.write(value+" ")
+                myfile.write(' '.join(str(v) for v in list(glove_data.__getitem__(key))))
+                myfile.write("\n")
+                vocab.append(glove_data.__getitem__(key))
+    except FileExistsError:
+        print("emb_in.txt does not exist please run create_Joint_emb_input first")
 
-    #     myfile.write("%s\n" % var1)
-    # glove_data.indexer.index_to_word[]
 
-    word_inds = np.random.choice(np.arange(len(vocab)), size=10, replace=False)
     # for key, value in glove_data.indexer.index_to_word.items():
     #     # Create embedding by summing left and right embeddings
     #     w_embed = glove_data.__getitem__(key)
@@ -311,4 +311,3 @@ if __name__ == "__main__":
     #     plt.scatter(x, y)
     #     plt.annotate(vocab[word_ind], xy=(x, y), xytext=(5, 2),
     #                  textcoords='offset points', ha='right', va='bottom')
-    hyp.plot(vocab, '.', ndims=2)
