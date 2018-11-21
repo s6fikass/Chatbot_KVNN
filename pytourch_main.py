@@ -180,7 +180,7 @@ def main(args):
                     max(global_metric_score, sum(individual_metric) / len(individual_metric),
                                moses_multi_bleu_score/100)
 
-                    if bleu > avg_best_metric:
+                    if bleu > avg_best_metric and epoch_loss<30:
                         avg_best_metric = bleu
 
                         print('Saving Model.')
@@ -190,7 +190,6 @@ def main(args):
                     else:
                         cnt += 1
 
-                    if cnt == 100: break
 
                 # if epoch % plot_every == 0:
                 #

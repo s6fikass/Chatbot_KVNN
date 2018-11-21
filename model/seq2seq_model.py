@@ -557,8 +557,8 @@ class Seq2SeqmitAttn(nn.Module):
                 reference = data.sequence2str(batch.targetSeqs[i], clean=True)
                 batch_metric_score += nltk.translate.bleu_score.sentence_bleu([reference], predicted)
 
-            print("Predicted : ", data.sequence2str(batch_predictions[0].cpu().numpy(), clean=True))
-            print("Target : ", data.sequence2str(batch.targetSeqs[0], clean=True))
+                print("Predicted : ", data.sequence2str(batch_predictions[i].cpu().numpy(), clean=True))
+                print("Target : ", data.sequence2str(batch.targetSeqs[i], clean=True))
             batch_metric_score = batch_metric_score / self.b_size
 
             all_predicted.append(batch_predictions)
