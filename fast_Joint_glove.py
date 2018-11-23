@@ -160,11 +160,11 @@ class WordIndexer:
 
             for left_index, right_index, distance in l_ngrams:
                 if (left_index, right_index) in entities:
-                    comatrix[(left_index, right_index)] += self.entity_occurrences.get(right_index)/abs(
+                    comatrix[(left_index, right_index)] += 1/abs(
                         self.entity_occurrences.get(left_index)-self.entity_occurrences.get(right_index))
-                elif (right_index, left_index) in entities:
-                    comatrix[(left_index, right_index)] += 1 / abs(
-                        self.entity_occurrences.get(left_index) - self.entity_occurrences.get(right_index))
+                # elif (right_index, left_index) in entities:
+                #     comatrix[(left_index, right_index)] += 1 / abs(
+                #         self.entity_occurrences.get(left_index) - self.entity_occurrences.get(right_index))
                 else:
                     comatrix[(left_index, right_index)] =0
                 z += 1
@@ -244,7 +244,7 @@ def get_loss(R_vector, weight, l_vecs, r_vecs, log_covals, l_bias, r_bias):
     sim2 = ((l_vecs - r_vecs).sum(1).view(-1)) ** 2
     loss2 = torch.mul(sim2, R_vector)
 
-    Total_loss = loss + 1000*loss2
+    Total_loss = loss + 10000*loss2
 
     return Total_loss.mean()
 

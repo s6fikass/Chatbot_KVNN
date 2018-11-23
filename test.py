@@ -14,4 +14,4 @@ y = textdata.word_to_embedding_dict["dish_parking"].reshape(1, -1)
 y2 = textdata.word_to_embedding_dict["clear_skies"].reshape(1, -1)
 
 
-print(cosine_similarity(x,y))
+print(cosine_similarity(x,y2))
