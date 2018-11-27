@@ -139,7 +139,7 @@ class TextData:
 
                 print("Loading Joint embedding from disks...")
                 self.word_to_embedding_dict = self.load_embedding_from_disks(self.pretrained_emb_file)
-                embedding_size = len(self.word_to_embedding_dict.get("<pad>"))
+                embedding_size = len(self.word_to_embedding_dict.get("30"))
                 emb_matrix = np.zeros([self.getVocabularySize(), embedding_size], int)
 
                 for i in range(self.getVocabularySize()):
@@ -872,11 +872,12 @@ class TextData:
         with open(glove_filename, 'r') as glove_file:
             for (i, line) in enumerate(glove_file):
 
-                split = line.split(' ')
+                split = line.strip().split(' ')
 
                 word = split[0]
 
                 representation = split[1:]
+
                 representation = np.array(
                     [float(val) for val in representation]
                 )

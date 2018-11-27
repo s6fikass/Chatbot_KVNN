@@ -155,16 +155,20 @@ class WordIndexer:
         comatrix = Counter()
         z = 0
         entities = self._get_kb_triples()
+        BETA = 0.55
+        N = (entities.most_common(1)[0])[1] / 100
         for indexes in data:
             l_ngrams = self._get_ngrams(indexes)
 
             for left_index, right_index, distance in l_ngrams:
                 if (left_index, right_index) in entities:
-                    comatrix[(left_index, right_index)] += 1/abs(
-                        self.entity_occurrences.get(left_index)-self.entity_occurrences.get(right_index))
-                # elif (right_index, left_index) in entities:
-                #     comatrix[(left_index, right_index)] += 1 / abs(
-                #         self.entity_occurrences.get(left_index) - self.entity_occurrences.get(right_index))
+                    comatrix[(left_index, right_index)] += 1/max(self.entity_occurrences.get(right_index),
+                                                                 self.entity_occurrences.get(left_index))
+                        #(entities[(left_index, right_index)]/N)**BETA
+                elif (right_index, left_index) in entities:
+                    comatrix[(left_index,right_index )] += 1/max(self.entity_occurrences.get(right_index),
+                                                                 self.entity_occurrences.get(left_index))
+                        #(entities[(left_index, right_index)]/N)**BETA
                 else:
                     comatrix[(left_index, right_index)] =0
                 z += 1
@@ -190,6 +194,16 @@ class GloveDataset(Dataset):
 
         n_occurrences = np.array(n_occurrences)
         kb_n_occurrences=np.array(kb_n_occurrences)
+
+        com=[]
+
+        for i,value in enumerate(n_occurrences):
+            com.append([self.indexer.index_to_word[left[i]], self.indexer.index_to_word[right[i]], value])
+
+        with open("data/samples/corpus_com.txt", "w") as output:
+            writer = csv.writer(output, lineterminator='\n', delimiter=' ', quotechar=' ', quoting=csv.QUOTE_MINIMAL)
+            writer.writerows(com)
+
         self.n_obs = len(left)
 
         # We create the variables
@@ -199,8 +213,7 @@ class GloveDataset(Dataset):
         self.weights = np.minimum((n_occurrences / X_MAX) ** ALPHA, 1)
 
         self.weights = Variable(cuda(torch.FloatTensor(self.weights)))
-
-        self.kb_weights = np.minimum((kb_n_occurrences) ** ALPHA, 1)
+        self.kb_weights = np.minimum((kb_n_occurrences), 1)
         self.kb_weights = Variable(cuda(torch.FloatTensor(kb_n_occurrences)))#self.kb_weights)))
 
         self.y = Variable(cuda(torch.FloatTensor(np.log(n_occurrences))))
@@ -241,8 +254,10 @@ def get_loss(R_vector, weight, l_vecs, r_vecs, log_covals, l_bias, r_bias):
     x = (sim + l_bias + r_bias - log_covals) ** 2
     loss = torch.mul(x, weight)
 
-    sim2 = ((l_vecs - r_vecs).sum(1).view(-1)) ** 2
+    sim2 = ((l_vecs - r_vecs) ** 2).sum(1).view(-1)
     loss2 = torch.mul(sim2, R_vector)
+
+
 
     Total_loss = loss + 10000*loss2
 
