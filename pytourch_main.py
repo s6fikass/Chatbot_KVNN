@@ -71,7 +71,7 @@ def main(args):
     else:
         model = Seq2SeqmitAttn(hidden_size, textdata.getTargetMaxLength(), textdata.getVocabularySize(),
                                args.batch_size, hidden_size, textdata.word2id['<go>'], textdata.word2id['<eos>'],
-                               None, gpu=args.cuda, lr=0.0001, train_emb=False,
+                               None, gpu=args.cuda, lr=args.lr, train_emb=False,
                                n_layers=1, clip=50.0, pretrained_emb=textdata.pretrained_emb, dropout=0.0, emb_drop=0.0,
                                teacher_forcing_ratio=0.0)
 
@@ -319,6 +319,10 @@ if __name__ == '__main__':
     named_args.add_argument('-test', '--test', metavar='|',
                             help="""test the model on one batch and evaluate on the same """,
                             required=False, default=False, type=bool)
+
+    named_args.add_argument('-lr', '--lr', metavar='|',
+                            help="""model learning rate """,
+                            required=False, default=0.01, type=float)
 
     args = parser.parse_args()
     if args.cuda:

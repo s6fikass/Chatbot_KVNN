@@ -12,7 +12,9 @@ textdata = TextData("data/kvret_train_public.json", "data/kvret_dev_public.json"
 x = []
 s=[]
 
-plotting_sentences = ["will it be warm in camarillo over the next 2 days No it's not gonna be warm in Camarillo over the next 2 days", "show me directions to the nearest mall", "tom's house is 6_miles away at 580_van_ness_ave"]
+plotting_sentences = ["i have a doctor appointment next month on the 13 th at 11 am with tom please set a reminder",
+                      "navigate to my friend's home please do you know the address of friend's home actually i need to go home the quickest route please,the quickest route home is 4_miles away with heavy_traffic located at 5671_barringer_street",
+                      "what's the forecast in carson for this weekend,in carson it will be foggy on saturday and dew on sunday"]
 
 # plt.scatter(representation[0], representation[1])
 # plt.annotate(word, xy=(representation[0], representation[1]), xytext=(5, 2),
