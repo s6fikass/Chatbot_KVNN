@@ -1,0 +1,2 @@
+It looks like there is a road block being reported on the route but i will still find the quickest route to 550_alester_ave <eos>
+The nearest parking_garage is dish_parking at 550_alester_ave would you like directions there <eos>

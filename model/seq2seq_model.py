@@ -25,21 +25,30 @@ hostname = socket.gethostname()
 
 
 class LuongEncoderRNN(nn.Module):
-    def __init__(self, input_size, hidden_size, n_layers=1, emb=None, dropout=0.1):
+    def __init__(self, input_size, hidden_size, emb_dim, b_size, n_layers=1, dropout=0.1):
         super(LuongEncoderRNN, self).__init__()
 
         self.input_size = input_size
         self.hidden_size = hidden_size
         self.n_layers = n_layers
         self.dropout = dropout
-        if emb:
-            self.embedding=emb
-        else:
-            self.embedding = nn.Embedding(input_size, hidden_size)
+        self.emb_dim= emb_dim
+        self.b_size = b_size
         self.lstm = nn.LSTM(hidden_size, hidden_size, n_layers, dropout=self.dropout)
 
-    def forward(self, input_seqs, input_lengths, hidden=None):
-        embedded = self.embedding(input_seqs)
+    def init_weights(self, b_size):
+        # intiialize hidden weights
+        c0 = Variable(torch.zeros(self.n_layers, b_size, self.hidden_size))
+        h0 = Variable(torch.zeros(self.n_layers, b_size, self.hidden_size))
+
+        if self.gpu:
+            c0 = c0.cuda()
+            h0 = h0.cuda()
+
+        return h0, c0
+
+    def forward(self, embedded, input_lengths, hidden=None):
+        hidden = self.init_weights(embedded.size(1))
         #packed = torch.nn.utils.rnn.pack_padded_sequence(embedded, input_lengths)
         output, hidden = self.lstm(embedded, hidden)
         #output, _ = torch.nn.utils.rnn.pad_packed_sequence(output)  # unpack (back to padded)
@@ -170,7 +179,7 @@ class Attention(nn.Module):
 
 
 class LuongAttnDecoderRNN(nn.Module):
-    def __init__(self, attn_model, hidden_size, output_size, n_layers=1, dropout=0.1, intent_size=3, emb=None,
+    def __init__(self, attn_model, hidden_size,emb_dim, output_size, batch_size, n_layers=1, dropout=0.1, intent_size=3, emb=None,
                  use_cuda=None):
         super(LuongAttnDecoderRNN, self).__init__()
 
@@ -182,14 +191,8 @@ class LuongAttnDecoderRNN(nn.Module):
         self.dropout = dropout
         self.intent_size = intent_size
         self.use_cuda = use_cuda
-
-        # Define layers
-        if emb:
-            self.embedding = emb
-        else:
-            self.embedding = nn.Embedding(output_size, hidden_size)
-            self.embedding_dropout = nn.Dropout(dropout)
-
+        self.emb_dim = emb_dim
+        self.batch_size=batch_size
         self.lstm = nn.LSTM(hidden_size, hidden_size, n_layers, dropout=dropout)
         self.lstm_intent = nn.LSTM(intent_size, hidden_size)
 
@@ -203,16 +206,14 @@ class LuongAttnDecoderRNN(nn.Module):
             self.intent_attn = Attn(attn_model, hidden_size, self.use_cuda) #Attn(attn_model, hidden_size, use_cuda)
             self.attention = Attention(hidden_size)
 
-    def forward(self, input_seq, last_context, last_hidden, encoder_outputs, inp_mask, intent_batch=False, Kb_batch=False):
+    def forward(self, embedded, last_context, last_hidden, encoder_outputs, inp_mask, intent_batch=False, Kb_batch=False):
         # Note: we run this one step at a time (in order to do teacher forcing)
 
         # Get the embedding of the current input word (last output word)
-        batch_size = input_seq.size(0)
+        batch_size = self.batch_size
         #         print('[decoder] input_seq', input_seq.size()) # batch_size x 1
-        embedded = self.embedding(input_seq)
 
-        if self.embedding_dropout:
-            embedded = self.embedding_dropout(embedded)
+
         embedded = embedded.view(1, batch_size, self.hidden_size)  # S=1 x B x N
         #print('[decoder] word_embedded', embedded.size())
 
@@ -624,9 +625,11 @@ class Seq2SeqAttnmitIntent(nn.Module):
             if train_emb == False:
                 self.embedding.weight.requires_grad = False
 
-        self.encoder = LuongEncoderRNN(self.input_size, hidden_size, self.n_layers,self.embedding, dropout=dropout)
-        self.decoder = LuongAttnDecoderRNN(attn_model, hidden_size, self.output_size, self.n_layers,
+        self.encoder = LuongEncoderRNN(self.input_size, hidden_size, self.n_layers,self.emb_dim, dropout=dropout)
+        self.decoder = LuongAttnDecoderRNN(attn_model, hidden_size, self.output_size,self.emb_dim, self.n_layers,
                                            intent_size=self.intent_size, dropout=dropout, use_cuda=self.use_cuda)
+
+
 
         if self.use_cuda:
             self.encoder = self.encoder.cuda()
