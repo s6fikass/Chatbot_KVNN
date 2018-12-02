@@ -252,6 +252,7 @@ def main(args):
 
 
         # plot eval and training loss
+        print(plot_losses)
         plt.plot(epoc_plot, plot_losses, label='train loss')
         plt.plot(epoc_plot, val_plot_loss_total, label='eval loss')
         plt.title("Train and Validation loss")

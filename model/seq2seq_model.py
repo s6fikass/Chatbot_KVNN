@@ -349,8 +349,8 @@ class Seq2SeqmitAttn(nn.Module):
         self.embedding = nn.Embedding(self.output_size, self.emb_dim, padding_idx=0)
         if pretrained_emb is not None:
             self.embedding.weight.data.copy_(pretrained_emb)
-            if train_emb == False:
-                self.embedding.weight.requires_grad = False
+            # if train_emb == False:
+            #     self.embedding.weight.requires_grad = False
 
         # Use single RNN for both encoder and decoder
         # self.rnn = nn.LSTM(emb_dim, hidden_size, n_layers, dropout=dropout)
@@ -367,6 +367,7 @@ class Seq2SeqmitAttn(nn.Module):
 
         self.encoder_optimizer = optim.Adam(self.encoder.parameters(), lr=lr)
         self.decoder_optimizer = optim.Adam(self.decoder.parameters(), lr=lr * self.decoder_learning_ratio)
+        self.optimizer = optim.Adam(self.parameters(), lr=lr)
 
         self.loss = 0
         self.print_every = 1
@@ -390,6 +391,7 @@ class Seq2SeqmitAttn(nn.Module):
         # Zero gradients of both optimizers
         self.encoder_optimizer.zero_grad()
         self.decoder_optimizer.zero_grad()
+        self.optimizer.zero_grad()
         loss_Vocab, loss_Ptr, loss_Gate = 0, 0, 0
         # Run words through encoder
         input_len = torch.sum(input_mask, dim=0)
@@ -449,6 +451,7 @@ class Seq2SeqmitAttn(nn.Module):
         # Update parameters with optimizers
         self.encoder_optimizer.step()
         self.decoder_optimizer.step()
+        #self.optimizer.step()
         self.loss += loss.item()
 
     def evaluate_batch(self, input_batch, out_batch, input_mask, target_mask):
@@ -463,7 +466,7 @@ class Seq2SeqmitAttn(nn.Module):
         # Set to not-training mode to disable dropout
         self.encoder.train(False)
         self.decoder.train(False)
-        self.embedding.train(False)
+        #self.embedding.train(False)
 
         if self.use_cuda:
             input_batch = input_batch.cuda()
@@ -792,9 +795,6 @@ class Seq2SeqAttnmitIntent(nn.Module):
             decoder_input = topi
             if self.use_cuda: decoder_input = decoder_input.cuda()
 
-        # Set back to training mode
-        self.encoder.train(True)
-        self.decoder.train(True)
 
        # return all_decoder_predictions, intent_pred
 

@@ -1,4 +1,4 @@
 .idea/
 *.pyc
+/data/bckp/
 data/samples/glove*
-data/bckp*
