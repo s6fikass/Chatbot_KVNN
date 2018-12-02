@@ -7,7 +7,7 @@ import re
 from tensorflow.python.platform import gfile
 import tensorflow as tf
 import json
-
+hgfhgf
 # Special vocabulary symbols - we always put them at the start.
 _PAD = b"_PAD"
 _GO = b"_GO"
