@@ -1,1 +1,0 @@
-The nearest parking_garage is dish_parking at 550_alester_ave would you like directions <eos>
