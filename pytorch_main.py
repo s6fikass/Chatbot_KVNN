@@ -1,19 +1,15 @@
 from tqdm import tqdm
-import random
 import time
 import math
 import socket
 import os
 import argparse
-import numpy as np
-
+import matplotlib.pyplot as plt
 from corpus.textdata import TextData
-from model.seq2seq_model import EncoderRNN, LuongAttnDecoderRNN, Seq2SeqmitAttn, Seq2SeqAttnmitIntent  # KVEncoderRNN, KVAttnDecoderRNN,
+from model.seq2seq_model import Seq2SeqmitAttn, Seq2SeqAttnmitIntent  # KVEncoderRNN, KVAttnDecoderRNN,
 
 import torch
-import torch.nn as nn
-from torch import optim
-from torch.nn import functional
+
 from torch.autograd import Variable
 
 
@@ -67,11 +63,11 @@ def main(args):
     if args.intent:
         model = Seq2SeqAttnmitIntent(attn_model, hidden_size,textdata.getVocabularySize(), textdata.getVocabularySize(),
                                  args.batch_size, textdata.word2id['<go>'], textdata.word2id['<eos>'], gpu=args.cuda,
-                                     clip=50.0, lr=0.001, pretrained_emb=textdata.pretrained_emb, dropout=0.0)
+                                     clip=50.0, lr=args.lr, pretrained_emb=textdata.pretrained_emb, dropout=0.0)
     else:
         model = Seq2SeqmitAttn(hidden_size, textdata.getTargetMaxLength(), textdata.getVocabularySize(),
                                args.batch_size, hidden_size, textdata.word2id['<go>'], textdata.word2id['<eos>'],
-                               None, gpu=args.cuda, lr=args.lr, train_emb=False,
+                               None, gpu=args.cuda, lr=args.lr, train_emb=True,
                                n_layers=1, clip=50.0, pretrained_emb=textdata.pretrained_emb, dropout=0.0, emb_drop=0.0,
                                teacher_forcing_ratio=0.0)
 
@@ -95,18 +91,17 @@ def main(args):
     plot_losses = []
     print_loss_total = 0  # Reset every print_every
     plot_loss_total = 0  # Reset every plot_every
+    epoc_plot=[]
+    val_plot_loss_total = [] # Reset every plot_every
     cnt = 0
     # Begin!
-    ecs = []
-    dcs = []
-    eca = 0
-    dca = 0
+
 
     print('Model Compiled.')
     print('Training. Ctrl+C to end early.')
 
     if args.val:
-        global_metric_score, individual_metric, moses_multi_bleu_score = \
+        global_metric_score, individual_metric, moses_multi_bleu_score, loss = \
             model.evaluate_model(textdata)
         print("Model Bleu using corpus bleu: ", global_metric_score)
         print("Model Bleu using sentence bleu: ", sum(individual_metric)/len(individual_metric))
@@ -168,21 +163,24 @@ def main(args):
                 #
                 if epoch % evaluate_every == 0:
                     print_loss_avg = print_loss_total / evaluate_every
-                #     print_loss_total = 0
+                    print_loss_total = 0
                     print_summary = '%s (%d %d%%) %.4f' % (
                             time_since(start, epoch / n_epochs), epoch, epoch / n_epochs * 100, print_loss_avg)
                     print(print_summary)
 
-                    global_metric_score, individual_metric, moses_multi_bleu_score = \
+                    global_metric_score, individual_metric, moses_multi_bleu_score, eval_loss = \
                         model.evaluate_model(textdata, valid=True, test=args.test)
 
                     print("Model Bleu using corpus bleu: ", global_metric_score)
                     print("Model Bleu using sentence bleu: ", sum(individual_metric) / len(individual_metric))
                     print("Model Bleu using moses_multi_bleu_score :", moses_multi_bleu_score)
+                    print("Model Loss :", eval_loss)
                     bleu =moses_multi_bleu_score
                     max(global_metric_score, sum(individual_metric) / len(individual_metric),
                                moses_multi_bleu_score/100)
-
+                    plot_losses.append(epoch_loss)
+                    val_plot_loss_total.append(eval_loss)
+                    epoc_plot.append(epoch)
                     if bleu > avg_best_metric:
                         avg_best_metric = bleu
 
@@ -242,14 +240,28 @@ def main(args):
         # model.save_weights("model_weights_nkbb.hdf5")
         print('Model training complete.')
 
-        global_metric_score, individual_metric, moses_multi_bleu_score = \
+        global_metric_score, individual_metric, moses_multi_bleu_score, eval_loss = \
             model.evaluate_model(textdata, test=args.test)
         print("Test Model Bleu using corpus bleu: ", global_metric_score)
         print("Test Model Bleu using sentence bleu: ", sum(individual_metric) / len(individual_metric))
         print("Test Model Bleu using moses_multi_bleu_score :", moses_multi_bleu_score)
-
+        print("Model Loss on test:", eval_loss)
         print('Saving Model.')
         torch.save(model.state_dict(), os.path.join(directory, '{}_{}.bin'.format(epoch, str(moses_multi_bleu_score/100))))
+
+
+
+        # plot eval and training loss
+        plt.plot(epoc_plot, plot_losses, label='train loss')
+        plt.plot(epoc_plot, val_plot_loss_total, label='eval loss')
+        plt.title("Train and Validation loss")
+
+        plt.legend()
+
+        plt.ylabel('loss')
+        plt.xlabel('epoch')
+        #plt.show()
+        plt.savefig("epoch losses per epochs")
 
 if __name__ == '__main__':
 
