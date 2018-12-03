@@ -1,6 +1,7 @@
 import torch
 from torch.nn import functional
 import os
+import torch.nn as nn
 
 def masked_cross_entropy(logits, target, mask):
     """
@@ -46,6 +47,34 @@ def save_model(model, name):
 
     torch.save(model.state_dict(), 'models/{}.bin'.format(name))
 
+
+def compute_ent_loss(embedding, logits, target, ent_mask, target_mask):
+    """
+    Compute loss for entities
+    :param embedding:
+    :param logits:
+    :param target:
+    :param ent_mask: entity mask = 1 if entity otherwise 0
+    :param target_mask:
+    :return:
+    """
+    cosine_loss = nn.CosineSimilarity(dim=-1)
+    pred_out = torch.argmax(logits)  # B X S
+    pred_out = ent_mask * pred_out
+
+    pred_emb = embedding(pred_out)  # B X S X E
+    target_ent = target * ent_mask
+
+    target_emb = embedding(target_ent)  # B X S X E
+
+    entity_loss = (1 - cosine_loss(target_emb, pred_emb))  # B X S
+    entity_loss = entity_loss * target_mask
+
+    length = torch.sum(target_mask, dim=1)
+
+    entity_loss = entity_loss.sum() / (length.float().sum() + 1e-8)
+
+    return entity_loss
 
 def load_model(model, name, gpu=True):
     if gpu:

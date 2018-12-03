@@ -1,0 +1,4 @@
+
+Input : Where's the nearest parking_garage
+Predicted : The nearest parking_garage is dish_parking at 550_alester_ave would you like directions there <eos>, intent:weather
+Target : The nearest parking_garage is dish_parking at 550_alester_ave would you like directions there <eos>, intent:navigate

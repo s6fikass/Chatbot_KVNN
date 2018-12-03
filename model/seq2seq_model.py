@@ -11,7 +11,7 @@ import torch.nn as nn
 from torch.autograd import Variable
 from torch import optim
 import torch.nn.functional as F
-from util.utils import masked_cross_entropy
+from util.utils import masked_cross_entropy, compute_ent_loss
 import os
 
 from util.measures import moses_multi_bleu
@@ -359,7 +359,8 @@ class Seq2SeqmitAttn(nn.Module):
 
     def __init__(self, hidden_size, max_r, n_words, b_size, emb_dim, sos_tok, eos_tok, itos, gpu=False, lr=0.01,
                  train_emb=True,
-                 n_layers=1, clip=2.0, pretrained_emb=None, dropout=0.0, emb_drop=0.0, teacher_forcing_ratio=0.0):
+                 n_layers=1, clip=2.0, pretrained_emb=None, dropout=0.0, emb_drop=0.0, teacher_forcing_ratio=0.0,
+                 use_entity_loss = False):
         super(Seq2SeqmitAttn, self).__init__()
         self.name = "VanillaSeq2Seq"
         self.input_size = n_words
@@ -379,6 +380,8 @@ class Seq2SeqmitAttn(nn.Module):
         self.itos = itos
         self.clip = clip
         self.use_cuda = gpu
+        self.entityloss=use_entity_loss
+
         # Common embedding for both encoder and decoder
         self.embedding = nn.Embedding(self.output_size, self.emb_dim, padding_idx=0)
         if pretrained_emb is not None:
@@ -406,7 +409,7 @@ class Seq2SeqmitAttn(nn.Module):
         self.loss = 0
         self.print_every = 1
 
-    def train_batch(self, input_batch, out_batch, input_mask, target_mask, input_length=None, output_length=None):
+    def train_batch(self, input_batch, out_batch, input_mask, target_mask, input_length=None, output_length=None, target_kb_mask=None):
 
         self.encoder.train(True)
         self.decoder.train(True)
@@ -473,6 +476,11 @@ class Seq2SeqmitAttn(nn.Module):
             out_batch.transpose(0, 1).contiguous(),  # -> B x S
             target_mask
         )
+        entity_loss=0
+        if self.use_entity_loss:
+            compute_ent_loss()
+
+
 
         loss = loss_Vocab
         loss.backward()
