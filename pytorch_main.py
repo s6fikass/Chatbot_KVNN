@@ -4,6 +4,8 @@ import math
 import socket
 import os
 import argparse
+import matplotlib
+matplotlib.use('agg')
 import matplotlib.pyplot as plt
 from corpus.textdata import TextData
 from model.seq2seq_model import Seq2SeqmitAttn, Seq2SeqAttnmitIntent  # KVEncoderRNN, KVAttnDecoderRNN,
@@ -68,7 +70,7 @@ def main(args):
         model = Seq2SeqmitAttn(hidden_size, textdata.getTargetMaxLength(), textdata.getVocabularySize(),
                                args.batch_size, hidden_size, textdata.word2id['<go>'], textdata.word2id['<eos>'],
                                None, gpu=args.cuda, lr=args.lr, train_emb=True,
-                               n_layers=1, clip=50.0, pretrained_emb=textdata.pretrained_emb, dropout=0.0, emb_drop=0.0,
+                               n_layers=1, clip=20.0, pretrained_emb=textdata.pretrained_emb, dropout=0.0, emb_drop=0.0,
                                teacher_forcing_ratio=0.0)
 
     if args.emb:
