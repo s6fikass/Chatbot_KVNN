@@ -37,16 +37,16 @@ class LuongEncoderRNN(nn.Module):
         self.b_size = b_size
         self.lstm = nn.LSTM(hidden_size, hidden_size, n_layers, dropout=self.dropout)
 
-    def init_weights(self, b_size):
-        # intiialize hidden weights
-        c0 = Variable(torch.zeros(self.n_layers, b_size, self.hidden_size))
-        h0 = Variable(torch.zeros(self.n_layers, b_size, self.hidden_size))
-
-        if self.gpu:
-            c0 = c0.cuda()
-            h0 = h0.cuda()
-
-        return h0, c0
+    # def init_weights(self, b_size):
+    #     # intiialize hidden weights
+    #     c0 = Variable(torch.zeros(self.n_layers, b_size, self.hidden_size))
+    #     h0 = Variable(torch.zeros(self.n_layers, b_size, self.hidden_size))
+    #
+    #     if self.gpu:
+    #         c0 = c0.cuda()
+    #         h0 = h0.cuda()
+    #
+    #     return h0, c0
 
     def forward(self, embedded, input_lengths, hidden=None):
         hidden = self.init_weights(embedded.size(1))
@@ -380,7 +380,7 @@ class Seq2SeqmitAttn(nn.Module):
         self.itos = itos
         self.clip = clip
         self.use_cuda = gpu
-        self.entityloss=use_entity_loss
+        self.use_entity_loss=use_entity_loss
 
         # Common embedding for both encoder and decoder
         self.embedding = nn.Embedding(self.output_size, self.emb_dim, padding_idx=0)
