@@ -199,7 +199,7 @@ class LuongAttnDecoderRNN(nn.Module):
 
         self.concat = nn.Linear(hidden_size * 2, hidden_size)
         self.out = nn.Linear(hidden_size, output_size)
-        self.intent_out = nn.Linear(self.hidden_size *2, self.intent_size)
+        self.intent_out = nn.Linear(self.hidden_size , self.intent_size)
 
         # Choose attention model
         if attn_model != 'none':
@@ -236,14 +236,17 @@ class LuongAttnDecoderRNN(nn.Module):
             #     intent_hidden = new_hidden.cuda()
             # else:
             #     intent_hidden = new_hidden
-            intent_hidden = hidden[0].clone()
-            # print("intent_intent_hidden", intent_hidden.shape)
+            intent_hidden = last_hidden[0]
+            #print("intent_intent_hidden", intent_hidden.shape)
 
-            intent_attn_weights= self.intent_attn(intent_hidden, encoder_outputs)
-            intent_context = intent_attn_weights.bmm(encoder_outputs.transpose(0, 1))
-            concated = torch.cat((intent_hidden, intent_context.transpose(0, 1)), 2)  # 1,B,D
-            # print("concated",concated.shape)
-            intent_score = self.intent_out(concated.squeeze(0))#last_hidden[-1].squeeze(0))#  # B,D
+            # intent_attn_weights= self.intent_attn(intent_hidden, encoder_outputs)
+            # intent_context = intent_attn_weights.bmm(encoder_outputs.transpose(0, 1))
+            intent_attn_output = self.attention_net(encoder_outputs.transpose(0, 1), intent_hidden)
+        #     print(intent_attn_output.transpose(0, 1).shape)
+        #    concated = torch.cat((intent_hidden.squeeze(0), intent_attn_output.transpose(0, 1)), 2)  # 1,B,D
+
+            #print("concated",intent_attn_output.shape)
+            intent_score = self.intent_out(intent_attn_output)#last_hidden[-1].squeeze(0))#  # B,D
 
         s_t = hidden[0][-1].unsqueeze(0)
         alpha, context = self.attention(encoder_outputs.transpose(0,1), s_t, inp_mask)
@@ -260,6 +263,37 @@ class LuongAttnDecoderRNN(nn.Module):
         # Return final output, hidden state, and attention weights (for visualization)
         return output, context, hidden, alpha, intent_score
 
+    def attention_net(self, lstm_output, final_state):
+
+        """
+        Now we will incorporate Attention mechanism in our LSTM model. In this new model, we will use attention to compute soft alignment score corresponding
+        between each of the hidden_state and the last hidden_state of the LSTM. We will be using torch.bmm for the batch matrix multiplication.
+
+        Arguments
+        ---------
+
+        lstm_output : Final output of the LSTM which contains hidden layer outputs for each sequence.
+        final_state : Final time-step hidden state (h_n) of the LSTM
+
+        ---------
+
+        Returns : It performs attention mechanism by first computing weights for each of the sequence present in lstm_output and and then finally computing the
+                  new hidden state.
+
+        Tensor Size :
+                    hidden.size() = (batch_size, hidden_size)
+                    attn_weights.size() = (batch_size, num_seq)
+                    soft_attn_weights.size() = (batch_size, num_seq)
+                    new_hidden_state.size() = (batch_size, hidden_size)
+
+        """
+
+        hidden = final_state.squeeze(0)
+        attn_weights = torch.bmm(lstm_output, hidden.unsqueeze(2)).squeeze(2)
+        soft_attn_weights = F.softmax(attn_weights, 1)
+        new_hidden_state = torch.bmm(lstm_output.transpose(1, 2), soft_attn_weights.unsqueeze(2)).squeeze(2)
+
+        return new_hidden_state
 
 class Decoder(nn.Module):
     """
@@ -882,35 +916,5 @@ class Seq2SeqAttnmitIntent(nn.Module):
 
         return global_metric_score, individual_metric, moses_multi_bleu_score, eval_loss.item()
 
-    def attention_net(self, lstm_output, final_state):
 
-        """
-        Now we will incorporate Attention mechanism in our LSTM model. In this new model, we will use attention to compute soft alignment score corresponding
-        between each of the hidden_state and the last hidden_state of the LSTM. We will be using torch.bmm for the batch matrix multiplication.
-
-        Arguments
-        ---------
-
-        lstm_output : Final output of the LSTM which contains hidden layer outputs for each sequence.
-        final_state : Final time-step hidden state (h_n) of the LSTM
-
-        ---------
-
-        Returns : It performs attention mechanism by first computing weights for each of the sequence present in lstm_output and and then finally computing the
-                  new hidden state.
-
-        Tensor Size :
-                    hidden.size() = (batch_size, hidden_size)
-                    attn_weights.size() = (batch_size, num_seq)
-                    soft_attn_weights.size() = (batch_size, num_seq)
-                    new_hidden_state.size() = (batch_size, hidden_size)
-
-        """
-
-        hidden = final_state.squeeze(0)
-        attn_weights = torch.bmm(lstm_output, hidden.unsqueeze(2)).squeeze(2)
-        soft_attn_weights = F.softmax(attn_weights, 1)
-        new_hidden_state = torch.bmm(lstm_output.transpose(1, 2), soft_attn_weights.unsqueeze(2)).squeeze(2)
-
-        return new_hidden_state
 
