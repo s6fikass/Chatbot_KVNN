@@ -676,6 +676,7 @@ class Seq2SeqAttnmitIntent(nn.Module):
         if self.use_cuda:
             self.encoder = self.encoder.cuda()
             self.decoder = self.decoder.cuda()
+            self.embedding=self.embedding.cuda()
 
         # Initialize optimizers and criterion
         self.encoder_optimizer = optim.Adam(self.encoder.parameters(), lr=self.lr)
