@@ -37,3 +37,14 @@ with open("data/samples/kb_emb_in.txt", "w") as output:
 with open("data/samples/kb_emb_comb_in.txt", "w") as output:
     writer = csv.writer(output, lineterminator='\n', delimiter =' ',quotechar =' ',quoting=csv.QUOTE_MINIMAL)
     writer.writerows(kb_comb)
+
+textdata = TextData("data/kvret_train_public.json","data/kvret_dev_public.json","data/kvret_test_public.json")
+
+texts=[]
+
+for i in textdata.testSamples:
+    texts.append([textdata.sequence2str(i[0], clean=True),textdata.sequence2str(i[1], clean=True)])
+
+with open("data/samples/test.csv", "w") as output:
+    writer = csv.writer(output, lineterminator='\n')#quotechar ='',quoting=csv.QUOTE_MINIMAL)
+    writer.writerows(texts)
