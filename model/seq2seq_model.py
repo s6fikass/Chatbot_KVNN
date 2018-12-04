@@ -37,16 +37,16 @@ class LuongEncoderRNN(nn.Module):
         self.b_size = b_size
         self.lstm = nn.LSTM(hidden_size, hidden_size, n_layers, dropout=self.dropout)
 
-    # def init_weights(self, b_size):
-    #     # intiialize hidden weights
-    #     c0 = Variable(torch.zeros(self.n_layers, b_size, self.hidden_size))
-    #     h0 = Variable(torch.zeros(self.n_layers, b_size, self.hidden_size))
-    #
-    #     if self.gpu:
-    #         c0 = c0.cuda()
-    #         h0 = h0.cuda()
-    #
-    #     return h0, c0
+    def init_weights(self, b_size):
+        # intiialize hidden weights
+        c0 = Variable(torch.zeros(self.n_layers, b_size, self.hidden_size))
+        h0 = Variable(torch.zeros(self.n_layers, b_size, self.hidden_size))
+
+        if self.gpu:
+            c0 = c0.cuda()
+            h0 = h0.cuda()
+
+        return h0, c0
 
     def forward(self, embedded, input_lengths, hidden=None):
         hidden = self.init_weights(embedded.size(1))
@@ -669,9 +669,12 @@ class Seq2SeqAttnmitIntent(nn.Module):
             # if train_emb == False:
             #     self.embedding.weight.requires_grad = False
 
-        self.encoder = LuongEncoderRNN(self.input_size, hidden_size,self.emb_dim,self.batch_size, self.n_layers, dropout=dropout)
-        self.decoder = LuongAttnDecoderRNN(attn_model, hidden_size,self.emb_dim, self.output_size,self.batch_size, self.n_layers,
-                                           intent_size=self.intent_size, dropout=dropout, use_cuda=self.use_cuda)
+        self.encoder = LuongEncoderRNN(self.input_size, hidden_size,self.emb_dim,self.batch_size,
+                                       self.n_layers, dropout=dropout, gpu=self.use_cuda)
+        self.decoder = LuongAttnDecoderRNN(attn_model, hidden_size,self.emb_dim, self.output_size,
+                                           self.batch_size, self.n_layers,
+                                           intent_size=self.intent_size, dropout=dropout,
+                                           use_cuda=self.use_cuda)
 
         if self.use_cuda:
             self.encoder = self.encoder.cuda()
