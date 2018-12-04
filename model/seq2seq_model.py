@@ -787,6 +787,7 @@ class Seq2SeqAttnmitIntent(nn.Module):
             input_batch = input_batch.cuda()
             input_mask= input_mask.cuda()
             target_mask=target_mask.cuda()
+            out_batch=out_batch.cuda()
 
         # Set to not-training mode to disable dropout
         self.encoder.train(False)
