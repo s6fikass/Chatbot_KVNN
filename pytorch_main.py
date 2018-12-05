@@ -281,7 +281,7 @@ if __name__ == '__main__':
 
     named_args.add_argument('-g', '--gpu', metavar='|',
                             help="""GPU to use""",
-                            required=False, default='0', type=str)
+                            required=False, default=0, type=int)
 
     named_args.add_argument('-p', '--padding', metavar='|',
                             help="""Amount of padding to use""",
