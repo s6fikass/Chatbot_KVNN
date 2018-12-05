@@ -140,13 +140,16 @@ class TextData:
                 print("Loading Joint embedding from disks...")
                 self.word_to_embedding_dict = self.load_embedding_from_disks(self.pretrained_emb_file)
                 embedding_size = len(self.word_to_embedding_dict.get("30"))
-                emb_matrix = np.zeros([self.getVocabularySize(), embedding_size], int)
+                emb_matrix = np.zeros((len(self.id2word), 300))
 
                 for i in range(self.getVocabularySize()):
                     i_embedding = self.word_to_embedding_dict[self.id2word[i]]
                     emb_matrix[i] = i_embedding
 
-                self.pretrained_emb = torch.from_numpy(emb_matrix)
+      #          for k,v in self.word_to_embedding_dict.items():
+
+
+                self.pretrained_emb = torch.from_numpy(emb_matrix.astype(np.float32))
 
                 print("Joint Embedding loaded from disks.")
 

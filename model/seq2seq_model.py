@@ -767,7 +767,7 @@ class Seq2SeqAttnmitIntent(nn.Module):
         loss_function_2 = nn.CrossEntropyLoss()
 
         intent_loss = loss_function_2(intent_score, intent_output)
-        loss = loss.add(100 * intent_loss.item())
+        loss = loss.add(10* intent_loss.item())
 
         intent_loss.backward(retain_graph=True)
         loss.backward()
