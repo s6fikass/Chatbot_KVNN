@@ -339,9 +339,6 @@ if __name__ == '__main__':
                             help="""model learning rate """,
                             required=False, default=0.001, type=float)
 
-    named_args.add_argument('-gpu', '--lr', metavar='|',
-                            help="""model learning rate """,
-                            required=False, default=0.001, type=float)
 
     args = parser.parse_args()
     if args.cuda:
