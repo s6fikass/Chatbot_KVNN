@@ -281,7 +281,7 @@ if __name__ == '__main__':
 
     named_args.add_argument('-g', '--gpu', metavar='|',
                             help="""GPU to use""",
-                            required=False, default='1', type=str)
+                            required=False, default='0', type=str)
 
     named_args.add_argument('-p', '--padding', metavar='|',
                             help="""Amount of padding to use""",
@@ -339,9 +339,14 @@ if __name__ == '__main__':
                             help="""model learning rate """,
                             required=False, default=0.001, type=float)
 
+    named_args.add_argument('-gpu', '--lr', metavar='|',
+                            help="""model learning rate """,
+                            required=False, default=0.001, type=float)
+
     args = parser.parse_args()
     if args.cuda:
         USE_CUDA = True
+        torch.cuda.set_device(args.gpu)
 
     main(args)
 

@@ -494,7 +494,7 @@ class Seq2SeqmitAttn(nn.Module):
         # Update parameters with optimizers
         self.encoder_optimizer.step()
         self.decoder_optimizer.step()
-        #self.optimizer.step()
+        self.optimizer.step()
         self.loss += loss.item()
 
     def evaluate_batch(self, input_batch, out_batch, input_mask, target_mask):
