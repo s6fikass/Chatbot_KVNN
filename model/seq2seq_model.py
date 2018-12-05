@@ -409,7 +409,8 @@ class Seq2SeqmitAttn(nn.Module):
         self.loss = 0
         self.print_every = 1
 
-    def train_batch(self, input_batch, out_batch, input_mask, target_mask, input_length=None, output_length=None, target_kb_mask=None):
+    def train_batch(self, input_batch, out_batch, input_mask, target_mask,
+                    input_length=None, output_length=None, target_kb_mask=None):
 
         self.encoder.train(True)
         self.decoder.train(True)
@@ -429,9 +430,8 @@ class Seq2SeqmitAttn(nn.Module):
         self.encoder_optimizer.zero_grad()
         self.decoder_optimizer.zero_grad()
         self.optimizer.zero_grad()
-        loss_Vocab, loss_Ptr, loss_Gate = 0, 0, 0
+
         # Run words through encoder
-        input_len = torch.sum(input_mask, dim=0)
         encoder_outputs, encoder_hidden = self.encoder(inp_emb,input_length)
 
         # target_len = torch.sum(target_mask, dim=0)
@@ -477,12 +477,13 @@ class Seq2SeqmitAttn(nn.Module):
             target_mask
         )
         entity_loss=0
-        if self.use_entity_loss:
-            compute_ent_loss()
+        if self.use_entity_loss and target_kb_mask is not None:
+            entity_loss=compute_ent_loss(self.embedding,all_decoder_outputs_vocab.transpose(0, 1).contiguous(),
+                             out_batch.transpose(0, 1).contiguous(),
+                             target_kb_mask,
+                             target_mask)
 
-
-
-        loss = loss_Vocab
+        loss = loss_Vocab.add(entity_loss)
         loss.backward()
 
         # clip gradient
@@ -573,7 +574,7 @@ class Seq2SeqmitAttn(nn.Module):
         self.decoder.train(True)
         self.embedding.train(True)
 
-        return decoded_words, loss_Vocab
+        return decoded_words, loss_Vocab.item()
 
     def evaluate_model(self, data, valid=False, test=False):
 
@@ -619,7 +620,7 @@ class Seq2SeqmitAttn(nn.Module):
         moses_multi_bleu_score = moses_multi_bleu(candidates2, references2, True,
                                                   os.path.join("trained_model", self.__class__.__name__))
 
-        return global_metric_score, individual_metric, moses_multi_bleu_score, loss_Vocab.item()
+        return global_metric_score, individual_metric, moses_multi_bleu_score, loss_Vocab
 
     def print_loss(self):
         print_loss_avg = self.loss / self.print_every
@@ -859,7 +860,7 @@ class Seq2SeqAttnmitIntent(nn.Module):
         self.decoder.train(True)
         self.embedding.train(True)
 
-        return all_decoder_predictions, intent_pred, loss_Vocab
+        return all_decoder_predictions, intent_pred, loss_Vocab.item()
 
     def evaluate_model(self, data, valid=False, test=False):
 
@@ -928,7 +929,7 @@ class Seq2SeqAttnmitIntent(nn.Module):
         else:
             moses_multi_bleu_score = moses_multi_bleu(candidates2, references2, True)
 
-        return global_metric_score, individual_metric, moses_multi_bleu_score, eval_loss.item()
+        return global_metric_score, individual_metric, moses_multi_bleu_score, eval_loss
 
 
 
