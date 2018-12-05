@@ -767,10 +767,11 @@ class Seq2SeqAttnmitIntent(nn.Module):
         loss_function_2 = nn.CrossEntropyLoss()
 
         intent_loss = loss_function_2(intent_score, intent_output)
-        loss = loss.add(2 * intent_loss.item())
+        loss = loss.add(100 * intent_loss.item())
 
-        loss.backward()
 
+        loss.backward(retain_graph=True)
+        intent_loss.backward()
         # clip gradient
         torch.nn.utils.clip_grad_norm_(self.encoder.parameters(), self.clip)
         torch.nn.utils.clip_grad_norm_(self.decoder.parameters(), self.clip)
