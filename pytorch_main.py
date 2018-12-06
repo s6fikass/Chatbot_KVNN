@@ -344,6 +344,7 @@ if __name__ == '__main__':
     if args.cuda:
         USE_CUDA = True
         torch.cuda.set_device(args.gpu)
+        print("current GPU: ",torch.cuda.current_device())
 
     main(args)
 
