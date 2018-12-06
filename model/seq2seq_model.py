@@ -482,6 +482,7 @@ class Seq2SeqmitAttn(nn.Module):
                              out_batch.transpose(0, 1).contiguous(),
                              target_kb_mask,
                              target_mask)
+            print(entity_loss)
 
         loss = loss_Vocab.add(entity_loss)
         loss.backward()
@@ -685,7 +686,7 @@ class Seq2SeqAttnmitIntent(nn.Module):
         # Initialize optimizers and criterion
         self.encoder_optimizer = optim.Adam(self.encoder.parameters(), lr=self.lr)
         self.decoder_optimizer = optim.Adam(self.decoder.parameters(), lr=self.lr * decoder_learning_ratio)
-
+        self.optimizer = optim.Adam(self.parameters(), lr=lr)
         self.plot_every = 20
         self.evaluate_every = 20
         self.loss=0
@@ -711,7 +712,7 @@ class Seq2SeqAttnmitIntent(nn.Module):
         # Zero gradients of both optimizers
         self.encoder_optimizer.zero_grad()
         self.decoder_optimizer.zero_grad()
-
+        self.optimizer.zero_grad()
 
         # Run words through encoder
         #input_len = torch.sum(input_mask, dim=0)
@@ -780,6 +781,8 @@ class Seq2SeqAttnmitIntent(nn.Module):
         # Update parameters with optimizers
         self.encoder_optimizer.step()
         self.decoder_optimizer.step()
+        self.optimizer.step()
+
         self.loss += loss.item()
 
     def evaluate_batch(self, input_batch, out_batch, input_mask, target_mask, input_length=None,
