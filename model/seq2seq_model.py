@@ -509,7 +509,7 @@ class Seq2SeqmitAttn(nn.Module):
         # Set to not-training mode to disable dropout
         self.encoder.train(False)
         self.decoder.train(False)
-        #self.embedding.train(False)
+        self.embedding.train(False)
 
         if self.use_cuda:
             input_batch = input_batch.cuda()
