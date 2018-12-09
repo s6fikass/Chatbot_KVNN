@@ -70,7 +70,7 @@ def compute_ent_loss(embedding, logits, target, ent_mask, target_mask):
 
     target_emb = embedding(target_ent)  # B X S X E
 
-    entity_loss = (1 - cosine_loss(target_emb, pred_emb))* ent_mask.type(torch.Tensor)  # B X S
+    entity_loss = (1 - cosine_loss(target_emb, pred_emb))* ent_mask  # B X S
     entity_loss = entity_loss * target_mask
 
     length = torch.sum(target_mask, dim=1)
