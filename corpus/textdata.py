@@ -279,7 +279,7 @@ class TextData:
         # for i in range(batchSize):
         #     print(samples[i][0])
 
-        samples.sort(key=lambda x: len(x[0]), reverse=True)
+        #samples.sort(key=lambda x: len(x[0]), reverse=True)
         # Create the batch tensor
         for i in range(batchSize):
             # Unpack the sample
@@ -307,9 +307,11 @@ class TextData:
 
             if len(batch.encoderSeqs[i]) > self.maxLengthEnco:
                 batch.encoderSeqs[i]= batch.encoderSeqs[i][self.maxLengthEnco:]
+                batch.encoderMaskSeqs[i]=batch.encoderMaskSeqs[i][self.maxLengthEnco:]
             if len(batch.targetSeqs[i]) > self.maxLengthDeco:
                 batch.decoderSeqs[i]=batch.decoderSeqs[i][:self.maxLengthDeco]
-
+                batch.targetSeqs[i]= batch.targetSeqs[i][:self.maxLengthDeco]
+                batch.decoderMaskSeqs[i] = batch.decoderMaskSeqs[i][:self.maxLengthDeco]
             # TODO: Should use tf batch function to automatically add padding and batch samples
             # Add padding & define weight
             batch.encoderSeqs[i] = [self.padToken] * (self.maxLengthEnco  - len(batch.encoderSeqs[i])) +batch.encoderSeqs[i]   # Left padding for the input

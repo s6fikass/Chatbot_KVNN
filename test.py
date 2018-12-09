@@ -1,6 +1,10 @@
 
 #
+from torch.autograd import Variable
+
 from corpus.textdata import TextData
+import torch
+import torch
 #
 glove_filename = "data/samples/joint_model"
 
@@ -15,7 +19,13 @@ import numpy as np
 
 
 # print(cosine_similarity(x,y2))
-batch=textdata.getBatches(1)[0]
-for triple in batch.kb_inputs[0]:
+batches = textdata.getBatches(120, valid=True, transpose=False)
 
-    print(textdata.sequence2str(triple))
+for batch in batches:
+    input_batch = Variable(torch.LongTensor(batch.encoderSeqs)).transpose(0, 1)
+    for i in batch.encoderMaskSeqs:
+        print(len(i))
+    target_batch = Variable(torch.LongTensor(batch.targetSeqs)).transpose(0, 1)
+
+    input_batch_mask = Variable(torch.FloatTensor(batch.encoderMaskSeqs)).transpose(0, 1)
+    target_batch_mask = Variable(torch.FloatTensor(batch.decoderMaskSeqs)).transpose(0, 1)
