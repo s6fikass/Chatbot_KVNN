@@ -558,7 +558,7 @@ class Seq2SeqmitAttn(nn.Module):
 
             all_decoder_outputs_vocab[t] = decoder_vocab
             topv, topi = decoder_vocab.data.topk(1)  # get prediction from decoder
-            masked_topi= topi * target_kb_mask[t]
+
             for i in range(self.b_size):
                 topi[i] = self.check_entity(topi[i].item(), kb[i])
             decoder_input = Variable(topi.view(-1))  # use this in the next time-steps
