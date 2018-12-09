@@ -139,7 +139,7 @@ def main(args):
                     input_batch_mask = Variable(torch.FloatTensor(current_batch.encoderMaskSeqs)).transpose(0, 1)
                     target_batch_mask = Variable(torch.FloatTensor(current_batch.decoderMaskSeqs)).transpose(0, 1)
                     target_kb_mask = Variable(torch.LongTensor(current_batch.targetKbMask)).transpose(0, 1)
-                    kb = current_batch.kb_inputs
+
                     # Train Model
                     if args.intent:
                         model.train_batch(input_batch, target_batch, input_batch_mask, target_batch_mask,
@@ -149,7 +149,7 @@ def main(args):
                                           input_lengths, target_lengths, intent_batch, kb_batch)
                     else:
                         model.train_batch(input_batch, target_batch, input_batch_mask, target_batch_mask,
-                                          target_kb_mask=target_kb_mask,kb=kb)
+                                          target_kb_mask=target_kb_mask)
 
                 # Keep track of loss
                 print_loss_total += model.loss

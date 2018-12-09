@@ -31,9 +31,7 @@ import collections
 from collections import defaultdict
 from corpus.kvretdata import KvretData
 import csv
-import spacy
 
-nlp = spacy.load('en_core_web_sm')
 
 
 class Batch:
@@ -109,6 +107,7 @@ class TextData:
         self.idCount = {}  # Useful to filters the words (TODO: Could replace dict by list or use collections.Counter)
         self.intent2id={}
         self.id2intent = {}
+        self.nlp=None
         self.loadCorpus()
 
 
@@ -489,7 +488,9 @@ class TextData:
             datasetExist = os.path.isfile(self.fullSamplesPath)  # Try to construct the dataset from the preprocessed entry
             if not datasetExist:
                 print('Constructing full dataset...')
+                import spacy
 
+                self.nlp = spacy.load('en_core_web_sm')
                 # Corpus creation
                 corpusData = TextData.availableCorpus['kvret'](self.corpusDir)
                 validData = TextData.availableCorpus['kvret'](self.validcorpus)

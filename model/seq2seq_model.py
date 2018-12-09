@@ -410,7 +410,7 @@ class Seq2SeqmitAttn(nn.Module):
         self.print_every = 1
 
     def train_batch(self, input_batch, out_batch, input_mask, target_mask,
-                    input_length=None, output_length=None, target_kb_mask=None,kb=None):
+                    input_length=None, output_length=None, target_kb_mask=None):
 
         self.encoder.train(True)
         self.decoder.train(True)
