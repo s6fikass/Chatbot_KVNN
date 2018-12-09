@@ -916,8 +916,10 @@ class Seq2SeqAttnmitIntent(nn.Module):
         for batch in batches:
             input_batch = Variable(torch.LongTensor(batch.encoderSeqs)).transpose(0, 1)
             target_batch = Variable(torch.LongTensor(batch.targetSeqs)).transpose(0, 1)
+            print(batch.encoderMaskSeqs)
             input_batch_mask = Variable(torch.FloatTensor(batch.encoderMaskSeqs)).transpose(0, 1)
             target_batch_mask = Variable(torch.FloatTensor(batch.decoderMaskSeqs)).transpose(0, 1)
+
 
             decoded_words, intent, loss = self.evaluate_batch(input_batch, target_batch, input_batch_mask, target_batch_mask,
                                                 batch.encoderSeqsLen, batch.decoderSeqsLen)

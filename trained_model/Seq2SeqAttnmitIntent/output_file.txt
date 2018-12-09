@@ -1,0 +1,40 @@
+
+Input : Where's the nearest parking_garage the nearest parking_garage is dish_parking at 550_alester_ave would you like directions there yes please set directions via a route that avoids all heavy_traffic if possible it looks like there is a road block being reported on the route but i will still find the quickest route to 550_alester_ave thanks so much for your help
+Predicted : You're very welcome <eos>, intent:navigate
+Target : You're very welcome <eos>, intent:navigate
+
+Input : Show me the closest location where i can get chinese food the closest chinese_restaurant is pf_changs located 5_miles away ok please give me an address and directions via a route that avoids all heavy_traffic pf_changs route set to 669_el_camino_real with only moderate_traffic noted thank you
+Predicted : You're welcome drive safely and enjoy <eos>, intent:navigate
+Target : You're welcome drive safely and enjoy <eos>, intent:navigate
+
+Input : Show me the closest location where i can get chinese food the closest chinese_restaurant is pf_changs located 5_miles away ok please give me an address and directions via a route that avoids all heavy_traffic
+Predicted : Pf_changs route set to 669_el_camino_real with only moderate_traffic noted <eos>, intent:navigate
+Target : Pf_changs route set to 669_el_camino_real with only moderate_traffic noted <eos>, intent:navigate
+
+Input : Where is the nearest gas_station there is a 76 4_miles away what is the address the 76 gas_station is located at 91_el_camino_real it is 4_miles away through moderate_traffic thanks
+Predicted : Anytime <eos>, intent:navigate
+Target : Anytime <eos>, intent:navigate
+
+Input : Where's the nearest parking_garage the nearest parking_garage is dish_parking at 550_alester_ave would you like directions there yes please set directions via a route that avoids all heavy_traffic if possible
+Predicted : It looks like there is a road block being reported on the route but i will still find the quickest route to 550_alester_ave <eos>, intent:navigate
+Target : It looks like there is a road block being reported on the route but i will still find the quickest route to 550_alester_ave <eos>, intent:navigate
+
+Input : Hi please set up a reminder for my dinner on the 11th at 4 pm with my sister thanks
+Predicted : Set have a good time <eos>, intent:schedule
+Target : Set have a good time <eos>, intent:schedule
+
+Input : Where is the nearest gas_station there is a 76 4_miles away what is the address
+Predicted : The 76 gas_station is located at 91_el_camino_real it is 4_miles away through moderate_traffic <eos>, intent:navigate
+Target : The 76 gas_station is located at 91_el_camino_real it is 4_miles away through moderate_traffic <eos>, intent:navigate
+
+Input : Show me the closest location where i can get chinese food
+Predicted : The closest chinese_restaurant is pf_changs located 5_miles away <eos>, intent:navigate
+Target : The closest chinese_restaurant is pf_changs located 5_miles away <eos>, intent:navigate
+
+Input : Where's the nearest parking_garage
+Predicted : The nearest parking_garage is dish_parking at 550_alester_ave would you like directions there <eos>, intent:navigate
+Target : The nearest parking_garage is dish_parking at 550_alester_ave would you like directions there <eos>, intent:navigate
+
+Input : Where is the nearest gas_station
+Predicted : There is a 76 4_miles away <eos>, intent:navigate
+Target : There is a 76 4_miles away <eos>, intent:navigate
