@@ -138,7 +138,7 @@ def main(args):
                     target_batch = Variable(torch.LongTensor(current_batch.targetSeqs)).transpose(0, 1)
                     input_batch_mask = Variable(torch.FloatTensor(current_batch.encoderMaskSeqs)).transpose(0, 1)
                     target_batch_mask = Variable(torch.FloatTensor(current_batch.decoderMaskSeqs)).transpose(0, 1)
-                    target_kb_mask = Variable(torch.Tensor(current_batch.targetKbMask)).transpose(0, 1)
+                    target_kb_mask = Variable(torch.FloatTensor(current_batch.targetKbMask)).transpose(0, 1)
 
                     # Train Model
                     if args.intent:
