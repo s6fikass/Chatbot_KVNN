@@ -645,8 +645,8 @@ class Seq2SeqmitAttn(nn.Module):
             for triple in kb:
                 if self.entities_p[word] == triple[1]:
                     return triple[2]
-        else:
-            return word
+
+        return word
 
 class Seq2SeqAttnmitIntent(nn.Module):
     """
