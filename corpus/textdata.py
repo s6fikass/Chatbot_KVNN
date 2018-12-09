@@ -31,6 +31,10 @@ import collections
 from collections import defaultdict
 from corpus.kvretdata import KvretData
 import csv
+import spacy
+
+nlp = spacy.load('en_core_web_sm')
+
 
 class Batch:
     """Struct containing batches info
@@ -97,7 +101,7 @@ class TextData:
         self.txtValidationSamples = []
         self.validationSamples = []
         self.testSamples = []
-
+        self.entities_property = dict()
 
 
         self.word2id = {}
@@ -142,16 +146,22 @@ class TextData:
                 embedding_size = len(self.word_to_embedding_dict.get("30"))
                 emb_matrix = np.zeros((len(self.id2word), 300))
 
+                # for k, v in self.word_to_embedding_dict.items():
+                #     print(k)
+                # for i in range(len(self.id2word)):
+                #
+                #     emb_matrix[self.word2id[i]] = self.word_to_embedding_dict[self.id2word[i]]
+
                 for i in range(self.getVocabularySize()):
                     i_embedding = self.word_to_embedding_dict[self.id2word[i]]
                     emb_matrix[i] = i_embedding
-
-      #          for k,v in self.word_to_embedding_dict.items():
 
 
                 self.pretrained_emb = torch.from_numpy(emb_matrix.astype(np.float32))
 
                 print("Joint Embedding loaded from disks.")
+
+
 
 
         # if self.playDataset:
@@ -288,6 +298,7 @@ class TextData:
                 batch.decoderSeqs[-1][1:])  # Same as decoder, but shifted to the left (ignore the <go>)
             batch.encoderMaskSeqs.append(list(np.ones(len(sample[0]))))
             batch.kb_inputs.append(sample[2])
+
             batch.seqIntent.append(sample[3])
 
             batch.encoderSeqsLen.append(len(sample[0]))
@@ -370,7 +381,7 @@ class TextData:
         return batches
 
     def get_kb_mask(self, sentence, kb):
-        kb_mask = sentence[:]
+        kb_mask = list(np.zeros(len(sentence)))
         for i, word in enumerate(sentence):
             for triple in kb:
                 if triple[0] == word or triple[2] == word:
@@ -521,6 +532,7 @@ class TextData:
                 'trainingSamples': self.trainingSamples,
                 'validationSamples': self.validationSamples,
                 'testSamples': self.testSamples,
+                'entities':self.entities_property,
             }
             pickle.dump(data, handle, -1)  # Using the highest protocol available
 
@@ -548,7 +560,7 @@ class TextData:
             self.trainingSamples = data['trainingSamples']
             self.validationSamples = data['validationSamples']
             self.testSamples = data['testSamples']
-
+            self.entities_property=data['entities']
             self.padToken = self.word2id['<pad>']
             self.goToken = self.word2id['<go>']
             self.eouToken = self.word2id['<eou>']
@@ -780,6 +792,8 @@ class TextData:
                                                                        k.strip().replace(".","")))))
                             if len(entities) == 3:
                                 triples.append(entities[:])
+                                if not (entities[2] in self.entities_property.keys()):
+                                    self.entities_property[entities[2]] = entities[1]
                                 entities.pop()
                                 entities.append(self.getWordId(processed_entity.lower(), train))
 
@@ -796,13 +810,26 @@ class TextData:
                         entities.append(self.getWordId(processed_entity.lower(), train))
 
                 #entities_property[entities[0]+'_'+entities[1]]=entities[2]
+                if not (entities[2] in self.entities_property.keys()):
+                    self.entities_property[entities[2]] = entities[1]
                 triples.append(entities)
             return triples
 
         else:
-            line = line.lower().replace(".","")
-            line = ' '.join(re.split('(\d+)(?=[a-z]|\-)', line)).strip()
-            line = ' '.join(re.findall(r"[\w']+|[^\s\w']", line))
+            line = line.replace('.','').replace(',','').replace(')','').replace("(",'').replace('"','').replace('?','')\
+                .replace('>','').replace("!",'').replace(':','').replace(';','').replace("' "," ")
+            doc=nlp(line)
+            line_tokens=[]
+            for token in doc:
+                line_tokens.append(token.text)
+            line = " ".join(line_tokens).lower()
+
+           # line = ' '.join(re.split('(\d+)(?=[a-z]|\-)', line)).strip()
+
+            for ent in doc.ents:
+                temp=(ent.text.strip()).split(" ")
+                if len(temp)>1 and ((ent.label_ == 'TIME' and len(temp)< 3) or ent.label_ == 'GPE'):
+                    line = line.replace(ent.text.lower(),'_'.join(temp).lower())
             count = 0
             entities ={}
 
@@ -832,7 +859,7 @@ class TextData:
 
 
             # Now to replace 50-60 by low and high degrees
-            p = re.compile("\\b(\d{2} - \d{2,3}( f| degrees)+)\\b")
+            p = re.compile("\\b(\d{2} - \d{2,3}(f| degrees|s)+)\\b")
             x = p.findall(line)
             for degrees in x:
                 low = "low_of_" + degrees[0].split("-")[0].strip() + "_f"
@@ -840,11 +867,10 @@ class TextData:
                 high = high.split(" ")[0] + '_f'
                 line = re.sub(degrees[0], low + ' and ' + high, line)
 
-
-
+            line=line.replace(" - "," ")
             sentences = []  # List[List[str]]
             # Extract sentences
-            sentencesToken = re.findall(r"[\w']+|[^\s\w']", line.lower())
+            sentencesToken = line.lower().split(" ")
 
             # We add sentence by sentence until we reach the maximum length
             for i in range(len(sentencesToken)):
@@ -852,8 +878,7 @@ class TextData:
                     token = entities[sentencesToken[i]]
                     sentences.append(self.getWordId(token, train))
                 else:
-                    token = sentencesToken[i].strip(",").strip(".").strip(":").strip("?").\
-                    strip("!").strip(";").strip(' \n\t').strip().strip(" ").strip('\t')
+                    token = sentencesToken[i]
                     if len(token) == 0:
                         continue
                     sentences.append(self.getWordId(token, train))  # Create the vocabulary and the training sentences

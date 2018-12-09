@@ -12,6 +12,8 @@ import re
 import pandas as pd
 import argparse
 #args = get_args()
+import spacy
+nlp=spacy.load('en_core_web_sm')
 
 class DialogBatcher:
     """

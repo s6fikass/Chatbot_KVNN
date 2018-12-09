@@ -71,7 +71,7 @@ def main(args):
                                args.batch_size, hidden_size, textdata.word2id['<go>'], textdata.word2id['<eos>'],
                                None, gpu=args.cuda, lr=args.lr, train_emb=True,
                                n_layers=1, clip=args.clip, pretrained_emb=textdata.pretrained_emb, dropout=0.1, emb_drop=0.1,
-                               teacher_forcing_ratio=0.0,use_entity_loss=True)
+                               teacher_forcing_ratio=0.0,use_entity_loss=True,entities_property=textdata.entities_property)
 
     if args.emb:
         directory = os.path.join("trained_model", model.__class__.__name__, (args.emb).split(".")[0])
@@ -139,6 +139,7 @@ def main(args):
                     input_batch_mask = Variable(torch.FloatTensor(current_batch.encoderMaskSeqs)).transpose(0, 1)
                     target_batch_mask = Variable(torch.FloatTensor(current_batch.decoderMaskSeqs)).transpose(0, 1)
                     target_kb_mask = Variable(torch.LongTensor(current_batch.targetKbMask)).transpose(0, 1)
+                    kb = current_batch.kb_inputs
                     # Train Model
                     if args.intent:
                         model.train_batch(input_batch, target_batch, input_batch_mask, target_batch_mask,
@@ -147,7 +148,8 @@ def main(args):
                         model.train_batch(input_batch, target_batch, input_batch_mask, target_batch_mask,
                                           input_lengths, target_lengths, intent_batch, kb_batch)
                     else:
-                        model.train_batch(input_batch, target_batch, input_batch_mask, target_batch_mask,target_kb_mask=target_kb_mask)
+                        model.train_batch(input_batch, target_batch, input_batch_mask, target_batch_mask,
+                                          target_kb_mask=target_kb_mask,kb=kb)
 
                 # Keep track of loss
                 print_loss_total += model.loss

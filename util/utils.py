@@ -59,18 +59,18 @@ def compute_ent_loss(embedding, logits, target, ent_mask, target_mask):
     :return:
     """
     cosine_loss = nn.CosineSimilarity(dim=-1)
-    v , i=logits.data.topk(1)
-    print(i.view(-1).shape)
-    pred_out = torch.argmax(logits)  # B X S
-    print("shp  ",pred_out)
+
+    pred_out = torch.argmax(logits, dim=-1).transpose(0,1)  # B X S
+
     pred_out = ent_mask * pred_out
 
     pred_emb = embedding(pred_out)  # B X S X E
+
     target_ent = target * ent_mask
 
     target_emb = embedding(target_ent)  # B X S X E
 
-    entity_loss = (1 - cosine_loss(target_emb, pred_emb))  # B X S
+    entity_loss = (1 - cosine_loss(target_emb, pred_emb))* ent_mask.type(torch.Tensor)  # B X S
     entity_loss = entity_loss * target_mask
 
     length = torch.sum(target_mask, dim=1)

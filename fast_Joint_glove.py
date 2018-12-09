@@ -12,7 +12,9 @@ from torch.utils.data import Dataset
 from tqdm import tqdm
 import nltk
 import hypertools as hyp
+import spacy
 
+nlp = spacy.load('en_core_web_sm')
 # Hyperparameters
 N_EMBEDDING = 300
 BASE_STD = 0.01
@@ -71,6 +73,7 @@ class WordIndexer:
         try:
             return self.word_to_index[word]
         except KeyError:
+            print("------------------",word)
             idx = len(self.word_to_index)
             self.word_to_index[word] = idx
             self.index_to_word[idx] = word
@@ -81,8 +84,12 @@ class WordIndexer:
         return len(self.word_to_index)
 
     def fit_transform(self, texts):
-        l_words = [list(re.findall(r"[\w']+|[^\s\w']", sentence.replace(',', ' ').replace('<eou> ','').strip()))
-                   for sentence in texts]
+        tr= []
+        for sample in self.trainingSamples:
+            tr.append(self.sequence2str(sample[0]))
+            tr.append(self.sequence2str(sample[1]))
+        l_words = [list([token for token in sentence.lower().split(' ')])
+                   for sentence in tr]
         word_occurrences = Counter(word for words in l_words for word in words)
 
         self.word_occurrences = {
@@ -91,7 +98,7 @@ class WordIndexer:
             if n_occurences >= self.min_word_occurences}
 
         return [[self._get_or_set_word_to_index(word)
-                 if word in self.word_occurrences else self.unknownToken
+                 if word in self.word_occurrences and word else self.unknownToken
                  for word in words]
                 for words in l_words]
 
@@ -128,7 +135,15 @@ class WordIndexer:
         if tensor:
             sequence=sequence.cpu().numpy()
 
-        return ' '.join([self.index_to_word[idx] for idx in sequence])
+        sentence = []
+        for wordId in sequence:
+            if wordId == 3:  # End of generated sentence
+                sentence.append(self.index_to_word[wordId])
+                break
+            elif wordId != 0 and wordId != 1 and wordId != 2:
+                sentence.append(self.index_to_word[wordId])
+
+        return ' '.join(sentence).strip()
 
     # Co-occurence matrix X
     def get_comatrix(self, data):

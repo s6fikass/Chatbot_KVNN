@@ -360,7 +360,7 @@ class Seq2SeqmitAttn(nn.Module):
     def __init__(self, hidden_size, max_r, n_words, b_size, emb_dim, sos_tok, eos_tok, itos, gpu=False, lr=0.01,
                  train_emb=True,
                  n_layers=1, clip=2.0, pretrained_emb=None, dropout=0.0, emb_drop=0.0, teacher_forcing_ratio=0.0,
-                 use_entity_loss = False):
+                 use_entity_loss = False, entities_property=None):
         super(Seq2SeqmitAttn, self).__init__()
         self.name = "VanillaSeq2Seq"
         self.input_size = n_words
@@ -381,7 +381,7 @@ class Seq2SeqmitAttn(nn.Module):
         self.clip = clip
         self.use_cuda = gpu
         self.use_entity_loss=use_entity_loss
-
+        self.entities_p=entities_property
         # Common embedding for both encoder and decoder
         self.embedding = nn.Embedding(self.output_size, self.emb_dim, padding_idx=0)
         if pretrained_emb is not None:
@@ -410,7 +410,7 @@ class Seq2SeqmitAttn(nn.Module):
         self.print_every = 1
 
     def train_batch(self, input_batch, out_batch, input_mask, target_mask,
-                    input_length=None, output_length=None, target_kb_mask=None):
+                    input_length=None, output_length=None, target_kb_mask=None,kb=None):
 
         self.encoder.train(True)
         self.decoder.train(True)
@@ -456,7 +456,8 @@ class Seq2SeqmitAttn(nn.Module):
         # print (decoder_input.size(), out_batch.size())
         # Choose whether to use teacher forcing
         use_teacher_forcing = random.random() < self.teacher_forcing_ratio
-
+        decoded_words = Variable(torch.zeros(int(max_target_length), b_size)).cuda() if self.use_cuda else \
+            Variable(torch.zeros(int(max_target_length), b_size))
         # provide data to decoder
         # if use_teacher_forcing:
         if 1:
@@ -465,6 +466,7 @@ class Seq2SeqmitAttn(nn.Module):
                 decoder_vocab, decoder_hidden = self.decoder(inp_emb_d, decoder_hidden, encoder_outputs, input_mask)
                 all_decoder_outputs_vocab[t] = decoder_vocab
                 decoder_input = out_batch[t].long()  # Next input is current target
+
 
 
         # print (all_decoder_outputs_vocab.size(), out_batch.size())
@@ -476,15 +478,16 @@ class Seq2SeqmitAttn(nn.Module):
             out_batch.transpose(0, 1).contiguous(),  # -> B x S
             target_mask
         )
-        entity_loss=0
-        if self.use_entity_loss and target_kb_mask is not None:
-            entity_loss=compute_ent_loss(self.embedding,all_decoder_outputs_vocab.transpose(0, 1).contiguous(),
-                             out_batch.transpose(0, 1).contiguous(),
-                             target_kb_mask,
-                             target_mask)
-            print(entity_loss)
+        loss = loss_Vocab
 
-        loss = loss_Vocab.add(entity_loss)
+        if self.use_entity_loss and target_kb_mask is not None:
+            entity_loss=compute_ent_loss(self.embedding,
+                                         all_decoder_outputs_vocab.contiguous(),
+                             out_batch.transpose(0,1).contiguous(),
+                             target_kb_mask.transpose(0,1).contiguous(),
+                             target_mask)
+
+            loss = loss + entity_loss
         loss.backward()
 
         # clip gradient
@@ -496,9 +499,10 @@ class Seq2SeqmitAttn(nn.Module):
         self.encoder_optimizer.step()
         self.decoder_optimizer.step()
         self.optimizer.step()
+
         self.loss += loss.item()
 
-    def evaluate_batch(self, input_batch, out_batch, input_mask, target_mask):
+    def evaluate_batch(self, input_batch, out_batch, input_mask, target_mask, target_kb_mask=None, kb=None):
         """
         evaluating batch
         :param input_batch:
@@ -543,6 +547,7 @@ class Seq2SeqmitAttn(nn.Module):
         decoded_words = Variable(torch.zeros(int(max_target_length), b_size)).cuda() if self.use_cuda else \
             Variable(torch.zeros(int(max_target_length), b_size))
         decoder_hidden = (encoder_hidden[0][:self.decoder.n_layers], encoder_hidden[1][:self.decoder.n_layers])
+
         # provide data to decoder
         for t in range(max_target_length):
             # print (decoder_input)
@@ -550,18 +555,16 @@ class Seq2SeqmitAttn(nn.Module):
             # print (inp_emb_d.size())
             # print (decoder_input.size())
             decoder_vocab, decoder_hidden = self.decoder(inp_emb_d, decoder_hidden, encoder_outputs, input_mask)
-            # if decoder_vocab.size(0) < self.b_size:
-            #     if self.use_cuda:
-            #         decoder_vocab = torch.cat([decoder_vocab, torch.zeros(b_size-decoder_vocab.size(0), self.output_size).cuda()])
-            #     else:
-            #         decoder_vocab = torch.cat([decoder_vocab, torch.zeros(b_size-decoder_vocab.size(0), self.output_size)])
+
             all_decoder_outputs_vocab[t] = decoder_vocab
             topv, topi = decoder_vocab.data.topk(1)  # get prediction from decoder
+            masked_topi= topi * target_kb_mask[t]
+            for i in range(self.b_size):
+                topi[i] = self.check_entity(topi[i].item(), kb[i])
             decoder_input = Variable(topi.view(-1))  # use this in the next time-steps
             decoded_words[t] = (topi.view(-1))
-            # decoded_words.append(['<EOS>' if ni == self.eos_tok else self.itos(ni) for ni in topi.view(-1)])
-        # print (all_decoder_outputs_vocab.size(), out_batch.size())
-        # out_batch = out_batch.transpose(0, 1).contiguous
+
+
         target_mask = target_mask.transpose(0, 1).contiguous()
 
         loss_Vocab = masked_cross_entropy(
@@ -595,8 +598,11 @@ class Seq2SeqmitAttn(nn.Module):
             target_batch = Variable(torch.LongTensor(batch.targetSeqs)).transpose(0, 1)
             input_batch_mask = Variable(torch.FloatTensor(batch.encoderMaskSeqs)).transpose(0, 1)
             target_batch_mask = Variable(torch.FloatTensor(batch.decoderMaskSeqs)).transpose(0, 1)
-
-            decoded_words, loss_Vocab = self.evaluate_batch(input_batch, target_batch, input_batch_mask, target_batch_mask)
+            target_kb_mask = Variable(torch.LongTensor(batch.targetKbMask)).transpose(0, 1)
+            kb = batch.kb_inputs
+            decoded_words, loss_Vocab = self.evaluate_batch(input_batch, target_batch, input_batch_mask,
+                                                            target_batch_mask,
+                                                            target_kb_mask=target_kb_mask, kb=kb)
 
             batch_predictions = decoded_words.transpose(0, 1)
 
@@ -628,6 +634,19 @@ class Seq2SeqmitAttn(nn.Module):
         self.print_every += 1
         return 'L:{:.2f}'.format(print_loss_avg)
 
+    def check_entity(self, word, kb):
+
+        if word in self.entities_p.keys() and len(kb)>1:
+            for triple in kb:
+                if word == triple[0]:
+                    return word
+                if word == triple[2]:
+                    return word
+            for triple in kb:
+                if self.entities_p[word] == triple[1]:
+                    return triple[2]
+        else:
+            return word
 
 class Seq2SeqAttnmitIntent(nn.Module):
     """
@@ -635,7 +654,8 @@ class Seq2SeqAttnmitIntent(nn.Module):
         """
     def __init__(self,  attn_model, hidden_size, input_size, output_size, batch_size, sos_tok, eso_tok, n_layers=1,
                  dropout=0.1, intent_size=3, intent_loss_coff=0.9, lr=0.001, decoder_learning_ratio=5.0,
-                 pretrained_emb=None, train_emb=False, clip=50.0, teacher_forcing_ratio=1, gpu=False):
+                 pretrained_emb=None, train_emb=False, clip=50.0, teacher_forcing_ratio=1, gpu=False,
+                 use_entity_loss=False):
         super(Seq2SeqAttnmitIntent, self).__init__()
 
         self.name = "LuongSeq2Seq"
@@ -645,7 +665,7 @@ class Seq2SeqAttnmitIntent(nn.Module):
 
         self.input_size = input_size
         self.output_size = output_size
-
+        self.use_entity_loss=use_entity_loss
         self.emb_dim = hidden_size
         self.hidden_size = hidden_size
 
@@ -689,10 +709,10 @@ class Seq2SeqAttnmitIntent(nn.Module):
         self.optimizer = optim.Adam(self.parameters(), lr=lr)
         self.plot_every = 20
         self.evaluate_every = 20
-        self.loss=0
+        self.loss = 0
 
     def train_batch(self, input_batch, out_batch, input_mask, target_mask, input_length=None,
-                    output_length=None, intent_batch=None):
+                    output_length=None, intent_batch=None,target_kb_mask=None,kb=None):
 
         self.encoder.train(True)
         self.decoder.train(True)
@@ -769,6 +789,15 @@ class Seq2SeqAttnmitIntent(nn.Module):
 
         intent_loss = loss_function_2(intent_score, intent_output)
         loss = loss + intent_loss
+
+        if self.use_entity_loss and target_kb_mask is not None:
+            entity_loss = compute_ent_loss(self.embedding,
+                                           all_decoder_outputs.contiguous(),
+                                           out_batch.transpose(0, 1).contiguous(),
+                                           target_kb_mask.transpose(0, 1).contiguous(),
+                                           target_mask)
+
+            loss = loss + entity_loss
 
         #intent_loss.backward(retain_graph=True)
         loss.backward()
