@@ -521,7 +521,7 @@ class Seq2SeqmitAttn(nn.Module):
             out_batch = out_batch.cuda()
             input_mask = input_mask.cuda()
             target_mask = target_mask.cuda()
-
+            target_kb_mask=target_kb_mask.cuda()
         inp_emb = self.embedding(input_batch)
         # output decoder words
 
