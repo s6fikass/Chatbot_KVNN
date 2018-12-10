@@ -311,7 +311,7 @@ class TextData:
             if len(batch.targetSeqs[i]) > self.maxLengthDeco:
                 batch.decoderSeqs[i]=batch.decoderSeqs[i][:self.maxLengthDeco]
                 batch.targetSeqs[i]= batch.targetSeqs[i][:self.maxLengthDeco]
-                batch.decoderMaskSeqs[i] = batch.decodergitMaskSeqs[i][:self.maxLengthDeco]
+                batch.decoderMaskSeqs[i] = batch.decoderMaskSeqs[i][:self.maxLengthDeco]
                 batch.targetKbMask[i]= batch.targetKbMask[i][:self.maxLengthDeco]
             # TODO: Should use tf batch function to automatically add padding and batch samples
             # Add padding & define weight
