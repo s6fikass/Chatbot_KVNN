@@ -182,7 +182,7 @@ def main(args):
                     bleu =moses_multi_bleu_score
                     max(global_metric_score, sum(individual_metric) / len(individual_metric),
                                moses_multi_bleu_score/100)
-                    plot_losses.append(epoch_loss)
+                    plot_losses.append(epoch_loss/len(batches))
                     val_plot_loss_total.append(eval_loss)
                     epoc_plot.append(epoch)
                     if bleu > avg_best_metric:

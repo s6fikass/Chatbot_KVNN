@@ -627,7 +627,7 @@ class Seq2SeqmitAttn(nn.Module):
         moses_multi_bleu_score = moses_multi_bleu(candidates2, references2, True,
                                                   os.path.join("trained_model", self.__class__.__name__))
 
-        return global_metric_score, individual_metric, moses_multi_bleu_score, loss_Vocab
+        return global_metric_score, individual_metric, moses_multi_bleu_score, loss_Vocab/len(batches)
 
     def print_loss(self):
         print_loss_avg = self.loss / self.print_every
@@ -964,7 +964,7 @@ class Seq2SeqAttnmitIntent(nn.Module):
         else:
             moses_multi_bleu_score = moses_multi_bleu(candidates2, references2, True)
 
-        return global_metric_score, individual_metric, moses_multi_bleu_score, eval_loss
+        return global_metric_score, individual_metric, moses_multi_bleu_score, eval_loss/len(batches)
 
 
 
