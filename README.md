@@ -1,7 +1,7 @@
 # ChatBot enriched with Intent detection and Joint Embedding 
 Chatbot-IDJE is a joint model for learning  Goal-Oriented Dialogues generation based on paper:
 
-###Incorporating Joint Embeddings into Goal-Oriented Dialogues with Multi-Task Learning [here](https://arxiv.org/abs/2001.10468)
+#### Incorporating Joint Embeddings into Goal-Oriented Dialogues with Multi-Task Learning [here](https://arxiv.org/abs/2001.10468)
 
 # Contents
 * ./src/reps.cc is the source code for training the model
